@@ -1,0 +1,44 @@
+{
+    "name": "rawx",
+    "version": "0.1.5",
+    "private": false,
+    "type": "module",
+    "license": "kind",
+    "exports": "./dist/index.js",
+    "scripts": {
+        "clean": "rimraf \"./dist\"",
+        "prebuild": "npm run clean",
+        "build": "tsc-esm",
+        "postbuild": "cp src/package_npm.json dist/package.json && cp ./README.md dist && cp ./license.kind dist",
+        "pack": "cd dist && npm pack",
+        "release": "npm run build && cd dist && npm pack",
+		"_tsc": "tsc",
+        "pub": "npm run release && cd dist && npm publish",
+        "start": "node test/meta.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git@github.com:lilzeta/rawx.git"
+    },
+    "keywords": [
+        "proc",
+        "daemon",
+        "child-process",
+        "server",
+        "filewatch",
+        "exec"
+    ],
+    "author": "https://github.com/lilzeta",
+    "devDependencies": {
+        "@digitak/tsc-esm": "3.1",
+        "@types/node": "18.7",
+        "rimraf": "3.0",
+        "typescript": "4.8"
+    },
+    "dependencies": {
+        "path": "0.12",
+        "tree-kill": "1.2",
+		"uuid": "9.0",
+		"@types/uuid": "8.3"
+    }
+}

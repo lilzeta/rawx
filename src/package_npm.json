@@ -1,0 +1,23 @@
+{
+    "name": "rawx",
+    "version": "0.1.5",
+    "private": false,
+    "type": "module",
+	"license": "kind",
+	"notice_": "Flux this pkg if/whenever however you feel like",
+	"_dis": "needs a automated fluxer to also update these pkgs. mueller?",
+    "exports": "./index.js",
+    "dependencies": {
+		"@types/uuid": "8.3",
+        "path": "0.12",
+        "tree-kill": "1.2",
+		"uuid": "9.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/lilzeta/rawx"
+    },
+	"keywords": ["proc", "daemon", "child-process", "server", "filewatch", "exec"],
+    "author": "https://github.com/lilzeta/rawx",
+	"pickle": "it"
+}

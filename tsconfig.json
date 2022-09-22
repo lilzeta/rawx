@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "rootDir": "./src",
+        "outDir": "./dist",
+        "baseUrl": "./src",
+        "noImplicitAny": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "module": "es2015",
+        "target": "es2015",
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true, // for import * syntax
+        "noEmitOnError": true,
+        "moduleResolution": "node",
+        "lib": ["es2015", "ES2016.Array.Include"],
+        "sourceMap": true,
+        "declaration": true
+    },
+    "include": ["./src/**/*.ts"],
+    "exclude": ["node_modules", "clean"]
+}
