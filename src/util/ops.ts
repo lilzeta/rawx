@@ -6,7 +6,7 @@
 import { Core } from "./core.js";
 import { format } from "util";
 import { Set_Proc_Logger_Args, Arg_Map } from "../interface.js";
-import { str, Colors, Color_Targets } from "../interface.js";
+import { str, colors as _colors, Colors, Color_Targets } from "../interface.js";
 
 type Debug = number;
 // let DEBUG: Debug;
@@ -130,12 +130,12 @@ export class Ops_Generator extends Core {
     debug: Debug = 2;
     // our local default basis
     colors: Escaped_Color_Targets = {
-        label: ESCAPE + Colors.LAVENDER,
-        default: ESCAPE + Colors.TECHNICOLOR_GREEN,
-        forky: ESCAPE + Colors.PURPLE,
-        lightly: ESCAPE + Colors.D_BLUE, // TODO oops darkly
-        errata: ESCAPE + Colors.H_RED,
-        fleck: ESCAPE + Colors.D_BLUE,
+        label: ESCAPE + _colors.LAVENDER,
+        default: ESCAPE + _colors.TECHNICOLOR_GREEN,
+        forky: ESCAPE + _colors.PURPLE,
+        lightly: ESCAPE + _colors.D_BLUE, // TODO oops darkly
+        errata: ESCAPE + _colors.H_RED,
+        fleck: ESCAPE + _colors.D_BLUE,
     };
     _l: Log_Ting;
     lightly: Log_Ting;

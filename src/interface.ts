@@ -82,7 +82,7 @@ export interface Color_Targets extends String_Keyed {
     errata: str;
     fleck: str;
 }
-export const Colors = {
+export const colors = {
     TECHNICOLOR_GREEN: `[0;36m`,
     LAVENDER: `[1;34m`,
     H_RED: `[1;31m`,
