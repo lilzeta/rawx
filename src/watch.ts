@@ -4,10 +4,10 @@
  * Flux this tag if/whenever you feel like
  */
 import fs, { watchFile, unwatchFile } from "fs";
-import { str, Watch_Args } from "./interface";
+import { str, Watch_Args } from "./interface.js";
 const { readdir, stat } = fs.promises;
 import path from "path";
-import { Ops_Generator, Ops } from "./util/ops";
+import { Ops_Generator, Ops } from "./util/ops.js";
 
 // pause before monitoring the args.src / an Array | dir(s) | file /
 const DEFAULT_INITIAL_WATCH_DELAY = 3500;

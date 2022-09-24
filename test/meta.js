@@ -1,5 +1,5 @@
 import path from "path";
-import { npm_build, Watchers } from "rawx";
+import { npm_build, Watch, colors } from "rawx";
 import { setTimeout as wait } from "timers/promises";
 
 const test = path.resolve("test");
@@ -77,7 +77,7 @@ const paths = [subserver_conf, context];
                 external_build_first_success().catch();
             } else {
                 if (!watch) {
-                    watch = Watchers({
+                    watch = Watch({
                         paths,
                         poll: 3000,
                         trigger: () => preschool(),

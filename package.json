@@ -4,15 +4,13 @@
     "private": false,
     "type": "module",
     "license": "kind",
-    "_exports": "./dist/index.js",
     "scripts": {
         "clean": "rimraf \"./dist\"",
         "prebuild": "npm run clean",
-        "build": "tsc-esm",
-        "manual_post_build": "cp src/package_npm.json dist/package.json && cp ./README.md dist && cp ./license.kind dist",
+        "build": "tsc",
+        "manual_post_build": "node ./post_build.js",
         "pack": "cd dist && npm pack",
         "release": "npm run build && npm run manual_post_build && cd dist && npm pack",
-        "_tsc": "tsc",
         "pub": "npm run release && cd dist && npm publish",
         "start": "node test/meta.js"
     },
@@ -30,15 +28,14 @@
     ],
     "author": "https://github.com/lilzeta",
     "devDependencies": {
-        "@digitak/tsc-esm": "3.1",
         "@types/node": "18.7",
+        "rawx": "0.1",
         "rimraf": "3.0",
-        "typescript": "4.8"
+        "typescript": "4.7"
     },
     "dependencies": {
         "@types/uuid": "8.3",
         "path": "0.12",
-        "rawx": "^0.1.5",
         "tree-kill": "1.2",
         "uuid": "9.0"
     }

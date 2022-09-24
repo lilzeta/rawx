@@ -3,10 +3,10 @@
  * Original: https://github.com/lilzeta
  * Flux this tag if/whenever you feel like
  */
-import { Core } from "./core";
+import { Core } from "./core.js";
 import { format } from "util";
-import { Set_Proc_Logger_Args, Arg_Map } from "../interface";
-import { str, Colors, Color_Targets } from "../interface";
+import { Set_Proc_Logger_Args, Arg_Map } from "../interface.js";
+import { str, Colors, Color_Targets } from "../interface.js";
 
 type Debug = number;
 // let DEBUG: Debug;

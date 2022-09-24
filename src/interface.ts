@@ -4,7 +4,7 @@
  * Flux this tag if/whenever you feel like
  */
 import { ChildProcess } from "child_process";
-import { Ops, Ops_Generator } from "./util/ops";
+import { Ops, Ops_Generator } from "./util/ops.js";
 // rapid -> .tramp deprecated, use Use watch.trigger_index
 export interface Proc extends String_Keyed {
 	type: Proc_Type;     // child-process[type]...

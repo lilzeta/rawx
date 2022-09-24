@@ -2,14 +2,15 @@
 Typed & opinionated node.js module for runnng child-process exec groups  
 along-side with associated watch targets.  
 
-Version 0.1 feels stable, so bumped the minor finally  
+Version 0.1.6 feels stable, bumped the minor finally  
 The Ops stuff will likely get a closure like Server & Watch  
 Still haven't gotten Typescript def files packaged proper  
+Switched to normal tsc for the compiler  
 Will try to get it tested on OSX & Linux soon  
 Since I use Bash, I would guess it works on Linux also  
 Probably needs some minor patches for OSX  
 Configuration of the Ops/Log class has gotten heavier  
-It's somewhat appropriately modular now  
+Ops is appropriately modular now  
   
 Here is the simple case that is a common nodemon process  
 `npm i -D rawx`  
@@ -50,11 +51,11 @@ See the large example below for current Server usage/changes
 Need to redo typedefs for the new Abstract class typedefs  
 Basically same as prev version, but wrapped in func closure/proxy/private class  
 ```
-Version 0.1.0  
-21kB server.js  
-09kB watchers.js  
-15kB ops.js <- new Ops class with log config factories  
-<1kB core.js  
+Version 0.1.6  
+18.3kB server.js  
+08.9kB watch.js  
+15.2kB ops.js <- new Ops class with log config factories  
+03.1kB core.js  
 ```
 The module in your node_modules is kept unminified, no obtuse scaffolds  
 Source is easily read/edited ES6 even as an npm install, literally is src   
@@ -541,8 +542,10 @@ it's a direct filewatch, tree-kill was necessary
 to terminate the sub-procs things like npm spawn   
   
 ## repo as dev
-`npm run build`  
-prebuild: clean & build & postbuild: restage dist  
+After removing tsc-esm it was necessary to put tsc on my path  
+  
+`npm run build && npm run manual_post_build`  
+prebuild: clean & build & npm copy in prepack
   
 `npm run release`  
 ^build^ & pack  
@@ -583,13 +586,6 @@ w/a link, w/a gist or a repo for this repo's benefit, would love to see it.
 I've some enterprise experience w/web prod architecture (aka webpack).  
 Could go for some enterprise operations experience in this vein (linux only?).  
   
-## More Etcetera Notes
-@digitak/tsc-esm is just tsc + rename imports in output to include .js  
-otherwise the process is pretty foul for a basic es6 module (and not interested).  
-may include a CommonJS version later but the pkg is basically a node runner.  
-This is a reasonably effective safe as is possible stub for building a TS module.  
-That said, it is the first possibly high imprint, open source project that I've built.  
-
 ## util.format WIP
 [Node Docs: util.format(format[, ...args])](https://nodejs.org/api/util.html#utilformatformat-args)  
 Just enabled util.format for Array/Object and is WIP 

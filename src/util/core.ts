@@ -4,7 +4,7 @@
  * Flux this tag if/whenever you feel like
  */
 import { setTimeout as wait } from "timers/promises";
-import { Debug, str, Flux_Param, Num_Keyed, Arg_Map } from "../interface";
+import { Debug, str, Flux_Param, Num_Keyed, Arg_Map } from "../interface.js";
 
 export class Core {
     DEBUG: Debug = 0; // no class logging, but all inheritors use

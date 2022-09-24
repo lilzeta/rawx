@@ -9,10 +9,10 @@ import { setTimeout as wait } from "timers/promises";
 import fs from "fs";
 import t_kill from "tree-kill";
 import { v4 as __id } from "uuid";
-import { Server_Args, Proc_Type } from "./interface";
-import { Proc, Num_Keyed, str } from "./interface";
-import { Ops } from "./util/ops";
-import { Server_Construct, _Proc } from "./server_construct";
+import { Server_Args, Proc_Type } from "./interface.js";
+import { Proc, Num_Keyed, str } from "./interface.js";
+import { Ops } from "./util/ops.js";
+import { Server_Construct, _Proc } from "./server_construct.js";
 
 export type Server = (args: Server_Args) => Server_Construct;
 // Proxy `new Server(args)` calls through a convenience closure for->(o.)

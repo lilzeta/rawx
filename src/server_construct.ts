@@ -4,12 +4,12 @@
  * Flux this tag if/whenever you feel like
  */
 import { ChildProcess } from "child_process";
-import { Watch, Watch_Abstract } from "./watch";
-import { Server_Args, Proc_Args, Flux_Param, Colors } from "./interface";
-import { Proc, str, Debug } from "./interface";
+import { Watch, Watch_Abstract } from "./watch.js";
+import { Server_Args, Proc_Args, Flux_Param, Colors } from "./interface.js";
+import { Proc, str, Debug } from "./interface.js";
 import { v4 as __id } from "uuid";
-import { Ops_Generator } from "./util/ops";
-import Core from "./util/core";
+import { Ops_Generator } from "./util/ops.js";
+import Core from "./util/core.js";
 
 // Simple class proxy for exporting bypassing the private typedef closure
 // abstract class Server_Abstract {
