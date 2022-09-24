@@ -6,87 +6,59 @@
 import * as child_process from "child_process";
 import { ChildProcess } from "child_process";
 import { setTimeout as wait } from "timers/promises";
+import fs from "fs";
 import t_kill from "tree-kill";
-import { Watchers, Watchers_Abstract } from "./watchers";
-import { Server_Args, Proc_Args, Proc_Type } from "./interface";
-import { Proc, Num_Keyed, str, Debug } from "./interface";
 import { v4 as __id } from "uuid";
-import { Ops_Generator, Ops } from "./util/ops";
+import { Server_Args, Proc_Type } from "./interface";
+import { Proc, Num_Keyed, str } from "./interface";
+import { Ops } from "./util/ops";
+import { Server_Construct, _Proc } from "./server_construct";
 
-// Simple class proxy for exporting bypassing the private typedef closure
-abstract class Server_Abstract {
-    constructor(_args: Server_Args) {}
-}
-
-export type Server = (args: Server_Args) => Server_Abstract;
-// Proxy `new Server(args)` calls through a convenience closure ->(o.)
+export type Server = (args: Server_Args) => Server_Construct;
+// Proxy `new Server(args)` calls through a convenience closure for->(o.)
 export const Server: Server = (args: Server_Args) => {
     // set in constructor
     let o: Ops;
-
-    // Core is logging and utilities
-    class Server implements Server_Abstract {
-        debug: Debug = 2;
-        procs: Array<_Proc>; // used to reset stack if trigger_index
-        step_procs: Array<_Proc>; // used as current stack
-        range_cache: Array<_Proc>;
-        last_range_at: number; // is the last range cache valid?
-        watch: Array<str>;
-        watch_ignore: RegExp;
-        watchers: Watchers_Abstract;
-        trigger_index?: number;
-        // uuid of the most recent chain
-        tubed?: str = undefined;
-        // still incomplete feature
-        tube_lock?: true;
-        running?: Array<ChildProcess> = [];
-        // aka wait for port to clear
-        kill_delay = 3000; // in ms
-        // pulse: {
-        //     // WIP chaperone (~watch dist oops)
-        //     last_stamps: Array<number>;
-        // };
-        // hash: any = {};
+    /**
+     * Note all class vars moved to Server_Construct, this file is runtime relevant
+     */
+    class Server extends Server_Construct {
         constructor(args: Server_Args) {
-            const { name, watch, colors, ...opts } = args;
-            let label = "";
-            if (name?.length) label = `${name}|Server`;
-            if (opts.debug !== undefined) {
-                // it's outside the class for some reason, WIP logging support module
-                this.debug = opts.debug;
+            super(args);
+            // Experimental feature mostly for internal use
+            if (this.defi(args.override_trigger)) {
+                this.restart = async () => {
+                    await this.kill_all();
+                    await wait(this.kill_delay);
+                    if (o.defi(this.trigger_index)) {
+                        this.set_range(this.trigger_index);
+                        this.step_procs = [...this.range_cache];
+                    }
+                    args.override_trigger();
+                };
             }
-            const ops = new Ops_Generator({ log_ignore: opts.log_ignore });
-            o = ops.ops_with_conf({ colors, debug: this.debug, label });
+            super.setup_watch({
+                trigger: this.restart,
+                watch: args.watch,
+                parent_colors: args.colors,
+            });
+            // An Env Configured Ops rebased for `Server`
+            o = this.ops.ops_with_conf({
+                colors: args.colors,
+                debug: this.debug,
+                label: this.label,
+            });
 
-            let { procs, proc } = opts;
-            const trigger_index = watch?.trigger_index;
-            if (o.defi(opts.kill_delay)) {
-                if (typeof opts.kill_delay === "number") {
-                    // o.lightly(1, "" + opts.kill_delay);
-                    this.kill_delay = opts.kill_delay;
-                } else {
-                    throw new Error("Use a number type to pass kill_delay.");
-                }
+            if (this.defi(this.trigger_index)) {
+                this.set_range(this.trigger_index);
             }
 
-            this.setup_procs({ procs, proc, trigger_index });
+            if (args.sig !== "handled") this.set_sigterm();
             this.tubed = __id();
-            // start first proc right away
+            // prepare first proc, run if no on_watch then run
             this.prepare_run({ chain_id: this.tubed }).catch();
-            if (watch?.paths?.length) {
-                this.watchers = Watchers({
-                    ops,
-                    trigger: this.watch_trigger_proxy,
-                    name,
-                    debug: this.debug, // overridden if watch.debug
-                    colors,
-                    ...(watch && {
-                        ...watch,
-                    }),
-                    // note not passing this causes inconsistencies, rather share LogIt...
-                });
-            }
-            if (opts.sig !== "handled") this.set_sigterm();
+
+            if (args.sig !== "handled") this.set_sigterm();
             o.lightly(7, `constructor completed`);
         }
 
@@ -113,14 +85,14 @@ export const Server: Server = (args: Server_Args) => {
         }
 
         // runs the trap (around start)
-        prepare_run = async ({ chain_id, direct_trigger, sub_proc }: Prepare_Args) => {
+        prepare_run = async ({ chain_id, direct_trigger, sub_proc }: _Prepare_Args) => {
             if (!direct_trigger && this.tubed && this.tubed !== chain_id) return;
             const proc = this.proc_from_stack(direct_trigger);
             // the proc.belay_for_watch type returns once
             if (proc === "wait") return;
             if (!proc) {
                 if (!this.step_procs?.length && !o.defi(this.trigger_index)) {
-                    o.forky(2, `no procs no trigger_index -> die()`);
+                    o.forky(2, `no procs & no trigger_index -> die()`);
                     this.die();
                 }
                 return;
@@ -134,7 +106,7 @@ export const Server: Server = (args: Server_Args) => {
             o.forky(9, "proc:");
             o.forky(9, o.pretty(proc));
 
-            let { type, command } = proc;
+            let { type, command, if_file_dne } = proc;
             let { chain_exit, trap, concurrently } = proc;
 
             // shouldn't get a warn if type-safe? - fatal
@@ -148,44 +120,38 @@ export const Server: Server = (args: Server_Args) => {
             // if proc.trap -> last <Server_Proc> - a one shot proc so remove watchers -> run command
             trap && this.trap(chain_id); // syncronously
 
+            // syncronously, ignoring result
+            if (concurrently) {
+                const conc_proc = concurrently;
+                this.concurrently(conc_proc, chain_id).catch();
+            }
+
             // start the server - this is the place that child-process[...](...) so the catch should be any
             try {
                 o.forky(chain_exit ? 8 : 999, `~ TIC ~`); // KICK...
                 if (proc.silence !== "all") {
                     o.forky(1, `<child-process> _// start - ${proc.label}`);
                 }
-                // syncronously, subproc is false if ! in chain-exit
-                const cool = this.run(this.create_run_args_from_proc(proc), proc, sub_proc);
 
-                // syncronously
-                if (concurrently) {
-                    const conc_proc = concurrently;
-                    this.concurrently(conc_proc, chain_id).catch();
-                }
-
-                if (chain_exit) {
-                    // until build is done or whatever proc.command is
-                    cool.once("exit", async (code: number) => {
-                        o.forky(8, `~ TOC ~`); // SNARE... haha
-                        // we may be finished
+                let cool;
+                if (if_file_dne?.length) {
+                    if (fs.existsSync(if_file_dne)) {
+                        o.errata(10, `File Exists`);
+                        // very weird if this next line is needed
                         this.terminate_check();
-
-                        if (chain_exit !== "success" || code === 0) {
-                            if (code) {
-                                const err = `Consider adding {chain_exit: "success"} to proc: ${proc.label} to halt on error`;
-                                o.errata(1, err);
-                            }
-                            // short post exit delay, TODO actually necessary for safe log flush?
-                            await wait(this.kill_delay);
-
-                            // pass same id to next on chain_exit
-                            await this.prepare_run({ chain_id, sub_proc: true });
-                        } else {
-                            o.errata(
-                                1,
-                                `proc: ${proc.label} did not succeed with code: ${code}, execution stopped`,
-                            );
+                        // We good we don't need to run self
+                        if (chain_exit) {
+                            o.errata(10, `File Exists, Next`);
+                            this.chain_next(0, proc, chain_exit, chain_id);
                         }
+                        return;
+                    }
+                }
+                cool = this.run(this.create_run_args_from_proc(proc), proc, sub_proc);
+                if (chain_exit) {
+                    cool.once("exit", async (code: number) => {
+                        this.terminate_check();
+                        this.chain_next(code, proc, chain_exit, chain_id);
                     });
                 } else {
                     cool.once("exit", async (_) => {
@@ -193,12 +159,55 @@ export const Server: Server = (args: Server_Args) => {
                     });
                 }
             } catch (err) {
-                o.errata(1, `Server | uncaught error -> fatal: ${err}`);
-
                 // TODO? a chaperone timer to prevent a watch_death -> catch (err) -> watch_death loop
-                this.kill_all().catch(); // but for now, force all processes to be catch responsible
+
+                if (this.trigger_index) {
+                    this.kill_all().catch(); // but for now, force all processes to be catch responsible
+                    o.errata(
+                        1,
+                        `Server | uncaught error -> chain will restart to trigger_index: ${err}`,
+                    );
+                    await wait(this.kill_delay);
+                } else {
+                    o.errata(1, `Server | uncaught throw -> no trigger_index, exiting: ${err}`);
+                    this.die();
+                }
             }
         };
+
+        async chain_next(
+            code: number,
+            last_proc: _Proc,
+            option: _Proc["chain_exit"],
+            chain_id: str,
+        ) {
+            if (!this.defi(option)) return;
+            o.forky(8, `~ TOC ~`); // SNARE... haha
+
+            if (option !== "success" || code === 0) {
+                // if err & not last
+                if (code && this.step_procs.length) {
+                    const err = `Consider adding {chain_exit: "success"} to proc: ${last_proc.label} to halt on error`;
+                    o.errata(1, err);
+                }
+                // short post exit delay, TODO actually necessary for safe log flush?
+                await wait(this.kill_delay);
+
+                // pass same chain_id to next on chain_exit
+                await this.prepare_run({ chain_id, sub_proc: true });
+            } else {
+                o.errata(
+                    1,
+                    `proc: ${last_proc.label} did not succeed with code: ${code}, execution stopped`,
+                );
+            }
+            if (last_proc.if_file_dne && !this.defi(this.trigger_index)) {
+                o.errata(
+                    4,
+                    `Likely you want to set trigger_index or proc failure will not run proc`,
+                );
+            }
+        }
 
         flush_clean_exits(pid: number) {
             let remove_i: Num_Keyed = {};
@@ -210,6 +219,7 @@ export const Server: Server = (args: Server_Args) => {
                 !remove_i[i] && new_r.push(dis);
                 return new_r;
             }, []);
+            this.terminate_check();
         }
 
         // Not sure if what mixture of clever and dumb this may get us into, when trued
@@ -225,7 +235,7 @@ export const Server: Server = (args: Server_Args) => {
 
         // lets keep this syncronous
         run = (
-            { type, command, args = [], options = {}, shell }: Run_Proc_Args,
+            { type, command, args = [], options = {}, shell }: _Run_Proc_Args,
             proc: _Proc,
             _subproc?: true,
         ): ChildProcess => {
@@ -235,7 +245,7 @@ export const Server: Server = (args: Server_Args) => {
             if (type === "exec") {
                 new_child_process = child_process.exec(`${command}${arg_s}`, options);
             } else {
-                let opt_plus: Options_Plus = {
+                let opt_plus: _Options_Plus = {
                     ...options,
                     ...(shell && { shell }),
                 };
@@ -264,7 +274,6 @@ export const Server: Server = (args: Server_Args) => {
             if (!o.defi(this.trigger_index) && !this.step_procs?.length) {
                 this.die();
             }
-            // else this.flush_clean_exits(c_proc.pid);
         }
 
         // `exec` with no follow up proc (good for dev-server w/watch server of it's own)
@@ -278,9 +287,9 @@ export const Server: Server = (args: Server_Args) => {
         }
 
         // WIP
-        watch_trigger_proxy = async () => {
-            await this.restart();
-        }; // watchFile can check on unwatch if fn matches the unwatch arg b4 unwatch TODO?
+        // watch_trigger_proxy = async () => {
+        //     await this.restart();
+        // }; // watchFile can check on unwatch if fn matches the unwatch arg b4 unwatch TODO?
 
         // note watchers has a direct link to this restart
         restart = async () => {
@@ -329,7 +338,7 @@ export const Server: Server = (args: Server_Args) => {
         //     return this.hash[id] !== undefined;
         // };
 
-        create_run_args_from_proc({ type, command, ...opts }: Proc): Run_Proc_Args {
+        create_run_args_from_proc({ type, command, ...opts }: Proc): _Run_Proc_Args {
             const { args, cwd, shell, delay, silence } = opts;
             return {
                 type,
@@ -345,54 +354,6 @@ export const Server: Server = (args: Server_Args) => {
                 }),
             };
         } // i used to hate js, propogating deconstructors - so clutch
-
-        // proc becomes this.procs=[proc] ... &some sensible checks
-        setup_procs({ procs: in_procs, proc: in_proc, trigger_index }: Proc_Setup) {
-            let procs: Array<Proc>;
-            if (o.defi(in_procs)) {
-                if (o.defi(in_proc)) throw new Error(`Server accepts only one of procs or proc.`);
-                if (Array.isArray(in_procs)) {
-                    procs = in_procs;
-                } else {
-                    procs = [in_procs];
-                }
-            } else {
-                if (Array.isArray(in_proc)) {
-                    // throw new Error(`use {procs:...} if using an array of procs`);
-                    procs = in_proc;
-                }
-                procs = [in_proc as Proc];
-            }
-
-            if (!procs.length)
-                throw new Error(`Server requires one of procs or proc, to contain a proc.`);
-            if (o.defi(trigger_index) && trigger_index > procs.length)
-                throw new Error(`trigger_index must not be larger than procs size.`);
-            this.trigger_index = trigger_index;
-            // disallow circularly concurrent chain, edit source if you a bold one _lol`
-            const and_no_turtles = (proc: Proc | _Proc): _Proc | undefined => {
-                if ((proc as _Proc).proc_id) return undefined;
-                let coerced: _Proc = Object.assign(proc, {
-                    proc_id: __id(),
-                    label: `[${proc.type}](${proc.command}...)`,
-                    ...(proc.concurrent && {
-                        concurrently: and_no_turtles(proc.concurrent),
-                    }),
-                });
-                // internal only chrono (Todo whats this called? a ~tic/toc er)
-                // if (coerced.on_watch) coerced.on_watch = true;
-                return coerced;
-            };
-            this.procs = [];
-            let jiggler;
-            for (let proc of procs) {
-                (jiggler = and_no_turtles(proc)) && this.procs.push(jiggler);
-            }
-            this.step_procs = [...this.procs]; // Shallow clone so flash proc changes {...}
-            if (o.defi(trigger_index)) {
-                this.set_range(trigger_index);
-            }
-        }
 
         // terminate server, sync
         die() {
@@ -429,35 +390,23 @@ export const Server: Server = (args: Server_Args) => {
     }
     return new Server(args);
 };
-interface _Proc extends Proc {
-    belay?: true;
-    proc_id: str;
-    concurrently: _Proc;
-    label: str;
-}
-interface Proc_Setup {
-    procs?: Proc_Args;
-    proc?: Proc_Args;
-    trigger_index?: number;
-}
-interface Prepare_Args {
+interface _Prepare_Args {
     chain_id: str;
     direct_trigger?: true;
     sub_proc?: true;
 }
-export interface Options {
+interface _Options {
     cwd?: str;
     delay?: number;
 }
-export interface Options_Plus extends Options {
+interface _Options_Plus extends _Options {
     shell?: true;
 }
-
-export interface Run_Proc_Args {
+interface _Run_Proc_Args {
     type: Proc_Type;
     command: str;
     args?: Array<str>;
-    options?: Options;
+    options?: _Options;
     shell?: true;
 }
 

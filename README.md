@@ -65,9 +65,14 @@ make sure opts are up to date, Readme maybe not entirely accurate all the time
   
 // ~ ~  Important gotches  
 Note for bash or windows users  
-<> alias npm="npm.cmd" can cause Ctrl-C to `hang` the process after a `Terminate (Y/N)` </>  
-<> Also, not using `start` as the browser open command in windows will `hang` </>  
+~ alias npm="npm.cmd" can cause Ctrl-C to `hang` the process after a `Terminate (Y/N)`   
+~ Also, not using `start` as the browser open command in windows will `hang`   
 // ~~~  Please raise issues if you've found bugs in this category for any OS!  
+
+~ export type str = string; this typedef is to help remove horizontal scrollbar  
+from the inteface docs, if you are mad right now it's a rust format I like.  
+Adding this line to important for that random extremely angry person  
+somewhere sometime, here is me not apologizing and helping instead lol.  
   
 For now use `path` via npm .resolve() to send an Array of (full file or full dir) paths.  
 This will spawn watches for up to 6 levels of dir children per dir ref.  
@@ -80,20 +85,22 @@ a proc is a daemon passtrough to child-process\[type\](command+args)
 ```
 export interface Proc extends String_Keyed {
 	type: Proc_Type;     // child-process[type]...
-	command: str;        // ...[type](command ...)
-	args?: Array<str>;   // ...](command ...args)
+    command: str;        // ...[type](command ...)
+    args?: Array<str>;   // ...](command ...args)
 	// immediately start next proc when this proc exits
-	// chain another on exit || on "success"(exit 0)
-	chain_exit?: true | "success";
+    // chain another on "success"(exit 0) || any exit
+    chain_exit?: "success" | true; 
+	// if not falsey defaults to "success"
 	on_watch?: true;     // delay start till a watch/trigger
-	concurrent?: Proc;   // chain another now
-	// where concurrent: {...Proc} <- is a Proc
-	delay?: number;      // wait to start self, Def: 0ms
-	// on trap unwatch all after a self triggered
-	trap?: true;         // remove filewatch permanently
-	silence?: Silencer;  // no stdout/console from Proc
-	cwd?: str;           // working path (untested)
-	shell?: true;        // passthrough  (untested)
+	if_file_dne?: str;   // only run if file @ path D.N.E.
+    concurrent?: Proc;   // chain another now
+    // where concurrent: {...Proc} <- is a Proc
+    delay?: number;      // wait to start self, Def: 0ms
+    // on trap unwatch all after a self triggered
+    trap?: true;         // remove filewatch permanently
+    silence?: Silencer;  // no stdout/console from Proc
+    cwd?: str;           // working path (untested)
+    shell?: true;        // passthrough  (untested)
 }
 // some => just on start&close messages
 export type Silencer = "some" | "all";
@@ -120,25 +127,29 @@ Arguments to the Server class constructor
 // verbose/all set to 10
 export type Debug = number | undefined;
 export interface Server_Args {
-	name: str;             // start/stop labeling
-	procs: Proc_Args;      // proc or procs
-	proc: Proc_Args;       // both => Throw Error
-	watch: {
-		paths: Array<str>; // dir or file full paths
-		// Note: `trigger` means `watch trigger` replaces .tramp, 
-		trigger_index?: number; // restart from index on trigger
-		ignore?: RegExp[]; // Regex array to not watch any match
-		delay?: number;
-		poll: number;
-		debug?: Debug;    // or uses Server one
-	};
-	colors?: Colors;
-	// true | 0->10 | "verbose" (verbose=10)
-	debug?: Debug;
+    name: str;            // start/stop labeling
+    procs: Proc_Args;     // proc or procs
+    proc: Proc_Args;      // both => Throw Error
+	// Note: `trigger` means `watch trigger` & replaces .tramp, 
+	trigger_index?: number; // restart from index on trigger
+    watch: {
+        paths: Array<str>;// dir or file full paths
+        ignore?: RegExp[];// Regex array to not watch any match
+        delay?: number;
+        poll: number;
+        debug?: Debug;    // or uses Server one
+		colors?: Colors;  // or uses Server one
+    };
+    colors?: Colors;      // or uses defaults
+    // true | 0->10 | "verbose" (verbose=10)
+    debug?: Debug;
 	log_ignore?: {reg: RegExp, replace?: string}[];
-	kill_delay?: number; // post kill wait in ms
-	// "handled" to not terminate on (Ctrl-C)
-	sig?: "handled";
+    kill_delay?: number; // post kill wait in ms
+    // "handled" to not terminate on (Ctrl-C)
+    sig?: "handled";
+	override_trigger?: ()=>void;
+    // WIP ignore delays on Proc exit/kill
+    // all_proc_immediate?: true;
 }
 ```
 Colors
@@ -228,7 +239,6 @@ const colors = {
     D_BLUE: `[0;34m`,
     NEON_YELLOW: `[1;33m`,
 };
-console.log("[L:11] <start_home.js> - \\_ begin");
 
 const debug = 2;
 const web_context = path.resolve(".");
@@ -264,9 +274,8 @@ Server({
         files: [storage_api_context].concat(shared_files),
         watch_ignore: /\/|\\(?:backup_data)|(?:file_store)/,
         poll: 4000,
-        trigger_index: 0, // always start from 0
     },
-    debug,
+    trigger_index: 0, // always start from 0
     colors: {
         default: colors.LAVENDER,
         forky: colors.PURPLE,
@@ -280,15 +289,12 @@ Server({
 const web_app_root = path.join(web_context, "web_app");
 // run the web app in production/static (at first), after clean and initial build
 let prod_web_dist = path.resolve("dist", "web_app");
-```
-Note I have serve installed globally as per their docs  
-[npmjs - npx serve](https://www.npmjs.com/package/serve)  
-```
-serve is not part of rawx install  
+// note I have serve installed globally as per their docs
+// [https://www.npmjs.com/package/serve](npmjs npx serve) - not part of rawx
 let prod_web_run = `npx serve -l ${WEB_APP_PORT} ${prod_web_dist}`;
 
 const root_dir = path.resolve("/");
-const app_data_local = path.join(root_dir, "Users", "z", "AppData", "Local");
+const app_data_local = path.join(root_dir, "Users", "lil_z", "AppData", "Local");
 const chrome = path.join(app_data_local, "Chromium", "Application", "chrome_proxy.exe");
 // args could be in the case of puppeteer:ws browser on localhost
 const browser_args = [
@@ -347,12 +353,19 @@ let web_procs = [
 Server({
     name: "web_server",
     procs: web_procs,
+    trigger_index: 3,
     watch: {
         paths: [web_app_root].concat(shared_files),
         poll: 30000,
         // incase of error on 0/1/2 later a watch triggers 3
-        trigger_index: 3,
-        debug: 1,
+        debug: 10, // noisy for new config => <3/4 normally
+        colors: {
+            default: colors.D_BLUE,
+            forky: colors.D_BLUE,
+            label: colors.D_BLUE,
+            fleck: colors.D_BLUE,
+            lightly: colors.D_BLUE,
+        },
     },
     debug,
     colors: {

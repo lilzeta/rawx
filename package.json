@@ -1,18 +1,18 @@
 {
     "name": "rawx",
-    "version": "0.1.5",
+    "version": "0.1.6",
     "private": false,
     "type": "module",
     "license": "kind",
-    "exports": "./dist/index.js",
+    "_exports": "./dist/index.js",
     "scripts": {
         "clean": "rimraf \"./dist\"",
         "prebuild": "npm run clean",
         "build": "tsc-esm",
-        "postbuild": "cp src/package_npm.json dist/package.json && cp ./README.md dist && cp ./license.kind dist",
+        "manual_post_build": "cp src/package_npm.json dist/package.json && cp ./README.md dist && cp ./license.kind dist",
         "pack": "cd dist && npm pack",
-        "release": "npm run build && cd dist && npm pack",
-		"_tsc": "tsc",
+        "release": "npm run build && npm run manual_post_build && cd dist && npm pack",
+        "_tsc": "tsc",
         "pub": "npm run release && cd dist && npm publish",
         "start": "node test/meta.js"
     },
@@ -36,9 +36,10 @@
         "typescript": "4.8"
     },
     "dependencies": {
+        "@types/uuid": "8.3",
         "path": "0.12",
+        "rawx": "^0.1.5",
         "tree-kill": "1.2",
-		"uuid": "9.0",
-		"@types/uuid": "8.3"
+        "uuid": "9.0"
     }
 }

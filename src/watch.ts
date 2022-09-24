@@ -4,7 +4,7 @@
  * Flux this tag if/whenever you feel like
  */
 import fs, { watchFile, unwatchFile } from "fs";
-import { Colors, Debug, str } from "./interface";
+import { str, Watch_Args } from "./interface";
 const { readdir, stat } = fs.promises;
 import path from "path";
 import { Ops_Generator, Ops } from "./util/ops";
@@ -29,31 +29,18 @@ const ABYSS_DEBUG = true; // as in console.log
 
 const IGNORE_REGEX_global = [/[.]log/, /\/|\\dist/, /log[.]sh/];
 
-export abstract class Watchers_Abstract {
-    constructor(_args: Watchers_Args) {}
+export abstract class Watch_Abstract {
+    constructor(_args: Watch_Args) {}
     abstract watches_clear: () => void;
 }
 
-export interface Watchers_Args {
-    name: str;
-    debug?: Debug;
-    ops: Ops_Generator;
-    colors?: Partial<Colors>;
-    trigger: any;
-    paths: Array<str> | str;
-    ignore?: RegExp[];
-    delay?: number;
-    // poll - in ms, w/min 1000, def: 5000
-    poll?: number;
-}
-
-export type Watchers = (args: Watchers_Args) => Watchers_Abstract;
-export const Watchers: Watchers = (args: Watchers_Args) => {
+export type Watch_Proxy = (args: Watch_Args) => Watch_Abstract;
+export const Watch: Watch_Proxy = (args: Watch_Args) => {
     // // set in constructor
     let o: Ops;
 
     // nothing explicitly async
-    class _Watchers implements Watchers_Abstract {
+    class _Watch implements Watch_Abstract {
         debug: number = 2;
         trigger: any;
         watch: Array<string>;
@@ -64,14 +51,15 @@ export const Watchers: Watchers = (args: Watchers_Args) => {
         poll: number = 5000;
 
         // watch: Array of full paths | dir - full_root_src_dir_path | single file - fullpath
-        constructor({ ops, paths, trigger, name, ignore, ...opts }: Watchers_Args) {
+        constructor({ ops, paths, trigger, name, ignore, ...opts }: Watch_Args) {
             let label: str | undefined;
             if (name?.length) label = `${name}|Watcher`;
+            if (opts.debug !== undefined) this.debug = opts.debug;
             // else label = `Watcher - `;
+            // An Env Configured Ops rebased for `Watch`
             if (!ops) ops = new Ops_Generator();
-            if (opts.debug !== undefined) this.debug = this.debug;
             o = ops.ops_with_conf({ colors: opts.colors, debug: this.debug, label });
-            // If used stand-alone only create if watch... Fatal, configuration must be valid
+            // If used stand-alone only create if opts.files ... Fatal, configuration must be valid
             if (!paths?.length)
                 throw new Error("No need for a special proc if no path(s) to watch.");
             if (!trigger) throw new Error("No need for watch if no trigger.");
@@ -100,7 +88,7 @@ export const Watchers: Watchers = (args: Watchers_Args) => {
                 o.lightly(7, watch_log);
             }, watch_delay);
         }
-        init_watch_list(files: Watchers_Args["paths"]) {
+        init_watch_list(files: Watch_Args["paths"]) {
             try {
                 if (Array.isArray(files)) {
                     this.watch = files;
@@ -202,7 +190,7 @@ export const Watchers: Watchers = (args: Watchers_Args) => {
             this.watchers = null;
         }
     }
-    return new _Watchers(args);
+    return new _Watch(args);
 };
 
-export default Watchers;
+export default Watch;

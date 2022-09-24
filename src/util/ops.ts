@@ -5,7 +5,8 @@
  */
 import { Core } from "./core";
 import { format } from "util";
-import { str, Colors, Set_Proc_Logger_Args, Color_Targets } from "../interface";
+import { Set_Proc_Logger_Args, Arg_Map } from "../interface";
+import { str, Colors, Color_Targets } from "../interface";
 
 type Debug = number;
 // let DEBUG: Debug;
@@ -105,7 +106,9 @@ export interface Ops {
     // Used after each subproc starts
     set_logging_etc_c_proc: (args: Set_Proc_Logger_Args) => void;
     sub_proc_prefix: IO;
+    compound_map_to_arg: Arg_Map;
 }
+
 // set in constructor
 let o: Ops;
 
@@ -152,7 +155,7 @@ export class Ops_Generator extends Core {
         if (debug) this.debug = debug;
 
         // Example if you want to use flat ops in a descaffolded var in any inheritor/class
-        o = this.ops_with_conf({ colors, debug, label });
+        o = this.ops_with_conf({ colors, debug: this.debug, label });
         // o.colors is union of args over current basis
         // so an implementor/inheritor can vary it's o.colors and its this.colors if desired
         o.lightly(6, `Core utilities setup completed`);
@@ -241,9 +244,19 @@ export class Ops_Generator extends Core {
                     main_color: recolored_basis["errata"],
                 }),
             }),
-            set_logging_etc_c_proc: this.set_logging_etc_c_proc,
+            set_logging_etc_c_proc: this._set_logging_etc_c_proc,
+            compound_map_to_arg: this.compound_map_to_arg,
         };
     } // kind
+
+    // arg_default_false: Arg_Default_False = (item: str | boolean, allowed: Array<str | boolean>) => {
+    //     if (!item || this.fuzzy_false(item)) return false;
+    //     if (this.fuzzy_true(item)) return true;
+    //     if (this.in_array(allowed, item)) {
+    //         return item;
+    //     }
+    //     return false;
+    // };
 
     format: Arg_Formatter = (...args: [any]) => {
         const is_num = (arg: any) => typeof arg === "number" || typeof arg === "bigint";
@@ -263,7 +276,8 @@ export class Ops_Generator extends Core {
     };
 
     // private because color is escaped!
-    // Pass color="" to not change color, important if sub-server has desired color
+    // use default="" to not change color of passthrough
+    // This would be important if sub-server has desired color
     private _logger_rescaffold: Rescaffold_Log_Ting = (
         scaf_args: Partial<Inner_Rescaffold_Args>,
     ) => {
@@ -271,10 +285,11 @@ export class Ops_Generator extends Core {
         const post = this.post({ is_defi_IO: pre });
         return (min_level: number, ...args: [any]) => {
             if (min_level > debug) return;
-            if (debug > 9) console.log(`_l local called w/type: ${typeof args[0]}`);
+            // can't use o.log at beginning of constructors
+            if (debug > 10) console.log(`_l local called w/type: ${typeof args[0]}`);
             if (args.length > 0) {
                 pre?.();
-                // console.log(get_flag(dis));
+                // WIP flags for work area notation - console.log(get_flag(dis));
                 console.log(this.format(...args));
                 post?.();
             }
@@ -285,7 +300,7 @@ export class Ops_Generator extends Core {
         let _color;
         if (!label.length) {
             if (main_color?.length) return () => this.stdout(main_color);
-            // else shold already be NO color
+            // else should already be NO color
             return undefined;
         }
         let pre = `<${label}>`;
@@ -320,7 +335,7 @@ export class Ops_Generator extends Core {
         if (some_str?.length) process.stdout._write(some_str, "utf8", () => {});
     }; // kind
 
-    // not a curry just a factory w/pure passthrough, outer is Core defaults curry, inner is the config curry
+    // curry the color type, to a new factory w/pure passthrough, inner is the config curry
     war: WAR = ({ color_target = "default" }: WAR_Args) => {
         const factory: Log_Factory = ({ debug, colors, pre }: Factory_Args) => {
             const color = colors[color_target];
@@ -351,8 +366,8 @@ export class Ops_Generator extends Core {
         color_target: "errata",
     }); // kind
 
-    // Used after each subproc starts
-    set_logging_etc_c_proc = ({
+    // Used after each subproc starts, may move this to another class
+    _set_logging_etc_c_proc = ({
         c_proc,
         silence,
         env_module = o,
@@ -437,12 +452,10 @@ export class Ops_Generator extends Core {
 // const flag0 = `<~~~~~~~~~~~~~~˅˅˅>`;
 // const flag1 = `</^^^~~~~~~~~~~~~~>`;
 // kind they are carrots, (stripped post build? WIP sed) internal__
+// Internal only, types mostly for typing intemediary functs for logging
 type IO = () => void | undefined;
 type LabelWrap = (args: LabelWrapArgs) => IO | undefined;
 type LabelWrapArgs = { label?: str; color?: str; fleck?: str; main_color: str };
 type PostWrap = (args: { is_defi_IO?: IO }) => IO | undefined;
 type Std_IO = (s: str) => void;
 type Arg_Formatter = (args: any[]) => str;
-// type LabelWrap = ((args: {label?: str,color?: str, fleck?:str})=>void) | undefined;
-// type WrapperIO = (some_str?: str, fleck?: str, tail?: str) => void;
-// type ColorNope = () => void;

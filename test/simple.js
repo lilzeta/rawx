@@ -16,7 +16,12 @@ const colors = {
         {
             type: "exec",
             command: "npm run build",
-            chain_exit: true,
+            chain_exit: "success",
+        },
+        {
+            type: "exec",
+            command: "npm run manual_post_build",
+            chain_exit: "success",
         },
         // {
         //     type: "exec",
@@ -34,6 +39,8 @@ const colors = {
     Server({
         name: "simple",
         procs,
+        trigger_index: 0,
+        kill_delay: 300, // too quick for many things
         colors: {
             default: colors.LAVENDER,
             forky: colors.PURPLE,
@@ -41,6 +48,5 @@ const colors = {
             lightly: colors.NEON_YELLOW,
             label: colors.NEON_YELLOW,
         },
-        trigger_index: 0,
     });
 })();
