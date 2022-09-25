@@ -2,7 +2,7 @@
 Typed & opinionated node.js module for runnng child-process exec groups  
 along-side with associated watch targets.  
 
-Version 0.1.6 feels stable, bumped the minor finally  
+Version 0.1.9 feels stable, lots of bug fixes  
 Use "moduleResolution": "node16" in your tsconfig now to use this
 The Ops stuff will likely get a closure like Server & Watch  
 Still haven't gotten Typescript def files packaged proper  
