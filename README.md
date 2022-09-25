@@ -36,8 +36,8 @@ Server({
     ],
     // takes files & directories watches files within directories
     watch: {
-		paths: [src, pkg],
-	},
+        paths: [src, pkg],
+    },
     colors: {
         // any subproc through-put without a color
         default: some_colors.TECHNICOLOR_GREEN,
@@ -97,12 +97,12 @@ export interface Proc extends String_Keyed {
 	type: Proc_Type_Or_Fn;// child-process[type]...
     command: str | Fn_W_Callback;         // ...[type](command ...)
     args?: Array<str>;    // ...](command ...args)
-	// immediately start next proc when this proc exits
+    // immediately start next proc when this proc exits
     // chain another on "success"(exit 0) || any exit
     chain_exit?: "success" | true; 
-	// if not falsey defaults to "success"
-	on_watch?: true;      // delay start till a watch/trigger
-	if_file_dne?: str;    // WIP
+    // if not falsey defaults to "success"
+    on_watch?: true;      // delay start till a watch/trigger
+    if_file_dne?: str;    // WIP
     on_file_exists?: number;// WIP
     concurrent?: Proc;    // chain another now
     // where concurrent: {...Proc} <- is a Proc
@@ -142,8 +142,8 @@ export interface Server_Args {
     name: str;            // start/stop labeling
     procs: Proc_Args;     // proc or procs
     proc: Proc_Args;      // both => Throw Error
-	// Note: `trigger` means `watch trigger` & replaces .tramp, 
-	trigger_index?: number; // restart from index on trigger
+    // Note: `trigger` means `watch trigger` & replaces .tramp, 
+    trigger_index?: number; // restart from index on trigger
     watch: {
         paths: Array<str>;// dir or file full paths
         ignore?: RegExp[];// Regex array to not watch any match
@@ -155,11 +155,11 @@ export interface Server_Args {
     colors?: Colors;      // or uses defaults
     // true | 0->10 | "verbose" (verbose=10)
     debug?: Debug;
-	log_ignore?: {reg: RegExp, replace?: string}[];
+    log_ignore?: {reg: RegExp, replace?: string}[];
     kill_delay?: number; // post kill wait in ms
     // "handled" to not terminate on (Ctrl-C)
     sig?: "handled";
-	// override_trigger WIP
+    // override_trigger WIP
     // WIP ignore delays on Proc exit/kill
     // all_proc_immediate?: true;
 }
@@ -293,8 +293,11 @@ Server({
 const web_app_root = path.join(web_context, "web_app");
 // run the web app in production/static (at first), after clean and initial build
 let prod_web_dist = path.resolve("dist", "web_app");
-// note I have serve installed globally as per their docs
-// [https://www.npmjs.com/package/serve](npmjs npx serve) - not part of rawx
+```
+note I have serve installed globally as per their docs  
+[npmjs npx serve](https://www.npmjs.com/package/serve)  
+not part of rawx  
+```
 let prod_web_run = `npx serve -l ${WEB_APP_PORT} ${prod_web_dist}`;
 
 const root_dir = path.resolve("/");
@@ -392,7 +395,7 @@ scripts: {
 	"web_app_dev_no_open": "webpack-dev-server --mode development --config \"web_app/webpack.web_app.config.js\"",
 	"web_app_dev": "webpack-dev-server --mode development --open --config \"web_app/webpack.web_app.config.js\"",
 	"start": "node start_web.js",
-	"reref": "npm i -D \"../rawx/dist/rawx-0.1.0.tgz\""
+	"reref": "npm i -D \"../rawx/dist/rawx-0.1.xy.tgz\""
 }
 ```
 Note currently calling storage_api_server.die() will cause web_server to unwatch shared_files  
@@ -404,11 +407,14 @@ This will get fixed when time is dedicated to testing it, since it uses the same
 If you watch a root dir, don't double watch inner directories.  
 It only allows one active pipe/proc at a time, but you don't need another.  
 It now kills any active chain procs on every new watch trigger  
-This means saving a file during a build woud start it over  
-This is not how it currently operates, could be bad if you watch dist on accident.  
+This means saving a file during a build woud start it over   
 Not decided on exactly what to do about a /dist in src under a weird alias.  
 </>  
-
+  
+The function hooks are WIP, just got one type working  
+works w/single file compile - sass  
+not going to document it till it works more generally, 0.2 probably  
+  
 ## Known Issues aka rough Todo in order of priority
 Here are next goals, when if    
 ###  High  
