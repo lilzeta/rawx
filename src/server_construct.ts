@@ -19,7 +19,7 @@ import Core from "./util/core.js";
 
 // export type Server = (args: Server_Args) => Server_Abstract;
 export interface Server_Constructor_Watch_Args {
-    trigger: () => void;
+    trigger: (path: str) => void;
     watch: Server_Args["watch"];
     parent_colors: Colors;
 }
@@ -38,11 +38,13 @@ export abstract class Server_Construct extends Core {
     watch_ignore: RegExp;
     watchers: Watch_Abstract;
     trigger_index?: number;
+    last_path_triggered: str;
     // uuid of the most recent chain
     tubed?: str = undefined;
     // still incomplete feature
     tube_lock?: true;
     running?: Array<ChildProcess> = [];
+    live_functions: Record<str, str> = {};
     // aka wait for port to clear
     kill_delay = 3000; // in ms
     // yet to determine if we need to allow last proc any log time
@@ -67,7 +69,7 @@ export abstract class Server_Construct extends Core {
         this.ops = new Ops_Generator({ log_ignore: opts.log_ignore });
 
         let { procs, proc } = opts;
-        let trigger_index = (this.trigger_index = opts.trigger_index);
+        this.trigger_index = opts.trigger_index;
         if (this.defi(opts.kill_delay)) {
             if (typeof opts.kill_delay === "number") {
                 // o.lightly(1, "" + opts.kill_delay);
@@ -76,8 +78,9 @@ export abstract class Server_Construct extends Core {
                 throw new Error("Use a number type to pass kill_delay.");
             }
         }
-        this.setup_procs({ procs, proc, trigger_index });
+        this.setup_procs({ procs, proc, trigger_index: this.trigger_index });
     }
+
     setup_watch({ trigger, watch, parent_colors }: Server_Constructor_Watch_Args) {
         if (watch?.paths?.length) {
             this.watchers = Watch({
@@ -99,7 +102,7 @@ export abstract class Server_Construct extends Core {
     }
 
     // proc becomes this.procs=[proc] ... &some sensible checks
-    setup_procs({ procs: in_procs, proc: in_proc, trigger_index }: _Proc_Setup) {
+    setup_procs({ procs: in_procs, proc: in_proc, trigger_index }: _Initialize_Procs_Args) {
         let procs: Array<Proc>;
         if (this.defi(in_procs)) {
             if (this.defi(in_proc)) throw new Error(`Server accepts only one of procs or proc.`);
@@ -124,9 +127,12 @@ export abstract class Server_Construct extends Core {
         // disallow circularly concurrent chain, edit source if you a bold one _lol`
         const and_no_turtles = (proc: Proc | _Proc): _Proc | undefined => {
             if ((proc as _Proc).proc_id) return undefined;
-            let coerced: _Proc = Object.assign(proc, {
+            let label: str;
+            if (typeof proc.command === "function") label = this.pretty(proc.command);
+            else label = proc.command;
+            let as_internal_Proc: _Proc = Object.assign(proc, {
                 proc_id: __id(),
-                label: `[${proc.type}](${proc.command}...)`,
+                label: `[${proc.type}](${this.truncate(label, 14)})`,
                 ...(proc.concurrent && {
                     concurrently: and_no_turtles(proc.concurrent),
                 }),
@@ -140,14 +146,23 @@ export abstract class Server_Construct extends Core {
             });
             // internal only chrono (Todo whats this called? a ~tic/toc er)
             // if (coerced.on_watch) coerced.on_watch = true;
-            return coerced;
+            return as_internal_Proc;
         };
         this.procs = [];
         let jiggler;
         for (let proc of procs) {
             (jiggler = and_no_turtles(proc)) && this.procs.push(jiggler);
         }
-        this.step_procs = [...this.procs]; // Shallow clone so flash proc changes {...}
+        this.set_range(0);
+    }
+    // at should be undefined on first call, intentionally
+    // Shallow clone so flash proc changes {...}
+    set_range(at: number) {
+        if (at === this.last_range_at) return;
+        this.last_range_at = at;
+        this.range_cache = [];
+        for (let i = at; i < this.procs.length; i++) this.range_cache.push(this.procs[i]);
+        this.step_procs = [...this.range_cache];
     }
 }
 // local stuff for now, 'experimenting' mode with argmaps like this
@@ -158,7 +173,7 @@ export interface _Proc extends Proc {
     concurrently: _Proc;
     label: str;
 }
-export interface _Proc_Setup {
+export interface _Initialize_Procs_Args {
     procs?: Proc_Args;
     proc?: Proc_Args;
     trigger_index?: number;

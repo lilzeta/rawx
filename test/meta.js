@@ -1,36 +1,35 @@
 import path from "path";
-import { npm_build, Watch, colors } from "rawx";
+// import { npm_build, Watch, colors } from "rawx";
+import { npm_build, Watch, some_colors } from "rawx";
 import { setTimeout as wait } from "timers/promises";
+// import { npm_build } from "../dist/index.js";
+import * as fs from "fs";
 
 const test = path.resolve("test");
 const subserver_conf = path.join(test, "simple.js");
-const colors = {
-    TECHNICOLOR_GREEN: `[0;36m`,
-    LAVENDER: `[1;34m`,
-    H_RED: `[1;31m`,
-    PURPLE: `[0;35m`,
-    D_BLUE: `[0;34m`,
-    NEON_YELLOW: `[1;33m`,
-};
-/**
- * procs[0] only runs if build DNE
- * (aka simple failed and no Server build exists to start it)
- */
-const context = path.resolve("src");
-const paths = [subserver_conf, context];
+const src_context = path.resolve("src");
+const paths = [subserver_conf, src_context];
+const dist = path.resolve("dist");
+const dist_index = path.join(dist, "index.js");
+
 (async () => {
-    const external_build_first_success = async () => {
+    let NO_CACHE = 0;
+    let Server;
+    const on_build_exists = async (first) => {
+        if (first || fs.existsSync(dist_index)) {
+            Server = (await import(`../dist/index.js#${NO_CACHE++}`)).default;
+        }
         const procs = [
             {
                 type: "exec",
                 command: "npm run build",
                 if_file_dne: "./dist/index.js",
+                on_file_exists: 2,
                 chain_exit: "success",
             },
             {
                 type: "exec",
-                command: "npm run manual_post_build",
-                if_file_dne: "./dist/index.js",
+                command: "npm run _post_build",
                 chain_exit: "success",
             },
             {
@@ -39,7 +38,6 @@ const paths = [subserver_conf, context];
             },
         ];
         // bootstrap import works once ...#${NO_CACHE++}
-        const Server = await (await import("../dist/index.js")).default;
         Server({
             name: "meta",
             procs,
@@ -51,9 +49,10 @@ const paths = [subserver_conf, context];
             kill_delay: 200,
             colors: {
                 default: "",
-                label: "", // no label .alias
+                // label: "", // no label .alias
+                fleck: "",
                 forky: "",
-                lightly: colors.NEON_YELLOW,
+                lightly: some_colors.NEON_YELLOW,
             },
             log_ignore: [
                 {
@@ -67,20 +66,30 @@ const paths = [subserver_conf, context];
     // we can't refresh w/o require transpile
     // an external rawx however can, in the meta sense, but for a child-proc server
     let watch;
-    const preschool = () => {
+    // Runs if dist is empty
+    const prep = () => {
+        if (fs.existsSync(dist_index)) {
+            on_build_exists(true).catch((err) => {
+                console.log(`fs.exists err: ${err}`);
+            });
+            return;
+        }
+
         const bootstrap = npm_build();
         bootstrap.once("exit", async (code) => {
             console.log(code);
             if (code === 0) {
                 watch?.watches_clear();
                 await wait(1000);
-                external_build_first_success().catch();
+                on_build_exists(true).catch((err) => {
+                    console.log(`npm build err: ${err}`);
+                });
             } else {
                 if (!watch) {
                     watch = Watch({
                         paths,
                         poll: 3000,
-                        trigger: () => preschool(),
+                        trigger: () => prep(),
                         debug: 4,
                     });
                 }
@@ -93,5 +102,5 @@ const paths = [subserver_conf, context];
             process.stderr._write(data, "utf8", () => {});
         });
     };
-    preschool();
+    prep();
 })();

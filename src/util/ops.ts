@@ -5,8 +5,8 @@
  */
 import { Core } from "./core.js";
 import { format } from "util";
-import { Set_Proc_Logger_Args, Arg_Map } from "../interface.js";
-import { str, colors as _colors, Colors, Color_Targets } from "../interface.js";
+import { Arg_Map, str } from "../interface.js";
+import { some_colors, Colors, Color_Targets } from "../interface.js";
 
 type Debug = number;
 // let DEBUG: Debug;
@@ -103,10 +103,11 @@ export interface Ops {
     errata: Log_Ting;
     defi: (obj: any) => boolean;
     pretty: (obj: any) => str;
-    // Used after each subproc starts
-    set_logging_etc_c_proc: (args: Set_Proc_Logger_Args) => void;
-    sub_proc_prefix: IO;
     compound_map_to_arg: Arg_Map;
+    prefix: LabelWrap;
+    post: PostWrap;
+    sub_proc_prefix: IO;
+    stdout: Std_IO;
 }
 
 // set in constructor
@@ -130,12 +131,13 @@ export class Ops_Generator extends Core {
     debug: Debug = 2;
     // our local default basis
     colors: Escaped_Color_Targets = {
-        label: ESCAPE + _colors.LAVENDER,
-        default: ESCAPE + _colors.TECHNICOLOR_GREEN,
-        forky: ESCAPE + _colors.PURPLE,
-        lightly: ESCAPE + _colors.D_BLUE, // TODO oops darkly
-        errata: ESCAPE + _colors.H_RED,
-        fleck: ESCAPE + _colors.D_BLUE,
+        label: ESCAPE + some_colors.LAVENDER,
+        default: ESCAPE + some_colors.TECHNICOLOR_GREEN,
+        forky: ESCAPE + some_colors.PURPLE,
+        lightly: ESCAPE + some_colors.D_BLUE, // TODO oops darkly
+        errata: ESCAPE + some_colors.H_RED,
+        // fleck: ESCAPE + some_colors.D_BLUE,
+        fleck: ESCAPE + some_colors.LAVENDER,
     };
     _l: Log_Ting;
     lightly: Log_Ting;
@@ -244,7 +246,9 @@ export class Ops_Generator extends Core {
                     main_color: recolored_basis["errata"],
                 }),
             }),
-            set_logging_etc_c_proc: this._set_logging_etc_c_proc,
+            prefix: this.prefix,
+            stdout: this.stdout,
+            post: this.post,
             compound_map_to_arg: this.compound_map_to_arg,
         };
     } // kind
@@ -365,66 +369,6 @@ export class Ops_Generator extends Core {
     log_errata_industrial: Log_Factory = this.war({
         color_target: "errata",
     }); // kind
-
-    // Used after each subproc starts, may move this to another class
-    _set_logging_etc_c_proc = ({
-        c_proc,
-        silence,
-        env_module = o,
-        on_close,
-    }: Set_Proc_Logger_Args) => {
-        let jiggler;
-        const colors = env_module.colors;
-        // No <-> deco on normal stdout/stderr - color passthrough
-        if (!silence) {
-            let sub_passthrough: IO;
-            // no label for proc std_out
-            if (env_module.colors.default?.length)
-                sub_passthrough = () => this.stdout(colors.default);
-            let post = this.post({ is_defi_IO: sub_passthrough });
-            c_proc.stdout.on("data", (data) => {
-                if ((jiggler = simple_clean(data)).length) {
-                    sub_passthrough?.();
-                    this.stdout(jiggler);
-                    post?.();
-                }
-            });
-        }
-
-        if (silence !== "all" && env_module.debug) {
-            let err_sub_passthrough: IO;
-            // no label for proc std_out
-            if (colors.errata?.length) err_sub_passthrough = () => this.stdout(colors.errata);
-            let err_post = this.post({ is_defi_IO: err_sub_passthrough });
-            c_proc.stderr.on("data", (data) => {
-                if ((jiggler = simple_clean(data)).length) {
-                    err_sub_passthrough?.();
-                    console.log(jiggler);
-                    err_post?.();
-                }
-            });
-            let forky_sub_passthrough: IO;
-            // no label for proc std_out
-            if (colors.forky?.length)
-                forky_sub_passthrough = this.prefix({
-                    label: env_module.label,
-                    color: colors["label"],
-                    fleck: colors["fleck"],
-                    main_color: colors["forky"],
-                });
-            let forky_post = this.post({ is_defi_IO: forky_sub_passthrough });
-            c_proc.on("close", (code) => {
-                // With named label
-                if (env_module.debug) {
-                    // this.stdout(env_module.colors.forky);
-                    forky_sub_passthrough?.();
-                    console.log(`</child-process> \\\\_ closed w/code: ${code}`);
-                    forky_post?.();
-                }
-                on_close(c_proc.pid);
-            });
-        }
-    }; // kind
 }
 
 // __internal (stripped post build)
@@ -453,9 +397,9 @@ export class Ops_Generator extends Core {
 // const flag1 = `</^^^~~~~~~~~~~~~~>`;
 // kind they are carrots, (stripped post build? WIP sed) internal__
 // Internal only, types mostly for typing intemediary functs for logging
-type IO = () => void | undefined;
+export type IO = () => void | undefined;
 type LabelWrap = (args: LabelWrapArgs) => IO | undefined;
 type LabelWrapArgs = { label?: str; color?: str; fleck?: str; main_color: str };
 type PostWrap = (args: { is_defi_IO?: IO }) => IO | undefined;
-type Std_IO = (s: str) => void;
+export type Std_IO = (s: str) => void;
 type Arg_Formatter = (args: any[]) => str;

@@ -88,6 +88,14 @@ export class Core {
         if (!item.length) return true;
         return this.in_array(["false", "f", "no", "n", "none", "never"], item.toLowerCase());
     }; // kind
+
+    truncate = (dis?: string, to_length = 15) => {
+        if (!dis) return "undef";
+        if (!dis.length) return "_";
+        // somewhere middlish...
+        if (dis.length > to_length - 2) return dis.substring(0, to_length) + "...";
+        return dis;
+    }; // kind
 }
 
 export default Core;

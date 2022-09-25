@@ -8,11 +8,12 @@
         "clean": "rimraf \"./dist\"",
         "prebuild": "npm run clean",
         "build": "tsc",
-        "manual_post_build": "node ./post_build.js",
+        "_post_build": "node ./post_build.js",
         "pack": "cd dist && npm pack",
-        "release": "npm run build && npm run manual_post_build && cd dist && npm pack",
+        "release": "npm run build && npm run _post_build && cd dist && npm pack",
         "pub": "npm run release && cd dist && npm publish",
-        "start": "node test/meta.js"
+        "reref": "npm run release && npm i -D \"./dist/rawx-0.1.7.tgz\"",
+        "start": "npm run reref && node test/meta.js"
     },
     "repository": {
         "type": "git",
@@ -28,15 +29,15 @@
     ],
     "author": "https://github.com/lilzeta",
     "devDependencies": {
-        "@types/node": "18.7",
-        "rawx": "0.1",
-        "rimraf": "3.0",
-        "typescript": "4.7"
+        "@types/node": "^18.7.20",
+        "rawx": "file:dist/rawx-0.1.7.tgz",
+        "rimraf": "^3.0.2",
+        "typescript": "^4.7"
     },
     "dependencies": {
-        "@types/uuid": "8.3",
-        "path": "0.12",
-        "tree-kill": "1.2",
-        "uuid": "9.0"
+        "@types/uuid": "^8.3.4",
+        "path": "^0.12.7",
+        "tree-kill": "^1.2.2",
+        "uuid": "^9.0.0"
     }
 }

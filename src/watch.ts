@@ -42,7 +42,7 @@ export const Watch: Watch_Proxy = (args: Watch_Args) => {
     // nothing explicitly async
     class _Watch implements Watch_Abstract {
         debug: number = 2;
-        trigger: any;
+        trigger: (path: str) => void;
         watch: Array<string>;
         ignore?: RegExp[] = IGNORE_REGEX_global;
         watchers: Array<any> = [];
@@ -111,7 +111,9 @@ export const Watch: Watch_Proxy = (args: Watch_Args) => {
             this.full_file_paths.forEach((full_path) => {
                 // o._l(1,`server_proc.js | [${this.name}] - watch: ${full_path}`);
                 // USE_PATH_test since dist/ or *.log can be inside watch dir
-                this.watchers.push(watchFile(full_path, { interval: this.poll }, this.watch_hit()));
+                this.watchers.push(
+                    watchFile(full_path, { interval: this.poll }, this.watch_hit(full_path)),
+                );
             });
 
             o._l(10, `watch_init completed, watching paths:\n${o.pretty(this.full_file_paths)}`);
@@ -164,14 +166,14 @@ export const Watch: Watch_Proxy = (args: Watch_Args) => {
             }
         }
         // with this = this
-        watch_hit = () => (curr: fs.Stats, prev: fs.Stats) => {
+        watch_hit = (path: str) => (curr: fs.Stats, prev: fs.Stats) => {
             o.errata(10, `watch_hit: this: ${this}`);
             // only when a file is changed ... not possible for dir watch - fs.watch
-            curr.mtime !== prev.mtime && this.trigger();
+            curr.mtime !== prev.mtime && this.trigger(path);
         };
-        watch_triggerred(filename: string) {
-            o.errata(10, `watch_triggerred: ${filename}`);
-            this.trigger();
+        watch_triggerred(path: string) {
+            o.errata(10, `watch_triggerred: ${path}`);
+            this.trigger(path);
         }
         // WIP pass func for specificity
         watches_clear() {

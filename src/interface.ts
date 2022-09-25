@@ -3,30 +3,30 @@
  * Original: https://github.com/lilzeta
  * Flux this tag if/whenever you feel like
  */
-import { ChildProcess } from "child_process";
-import { Ops, Ops_Generator } from "./util/ops.js";
-// rapid -> .tramp deprecated, use Use watch.trigger_index
+import { Ops_Generator } from "./util/ops.js";
+// rapid -> .tramp deprecated, use Use server.trigger_index
 export interface Proc extends String_Keyed {
-	type: Proc_Type;     // child-process[type]...
-    command: str;        // ...[type](command ...)
-    args?: Array<str>;   // ...](command ...args)
+	type: Proc_Type_Or_Fn;// child-process[type]...
+    command: str | Fn_W_Callback;         // ...[type](command ...)
+    args?: Array<str>;    // ...](command ...args)
 	// immediately start next proc when this proc exits
     // chain another on "success"(exit 0) || any exit
     chain_exit?: "success" | true; 
 	// if not falsey defaults to "success"
-	on_watch?: true;     // delay start till a watch/trigger
-	if_file_dne?: str;   // only run if file @ path D.N.E.
-    concurrent?: Proc;   // chain another now
+	on_watch?: true;      // delay start till a watch/trigger
+	if_file_dne?: str;    // only run if file @ path D.N.E.
+    on_file_exists?: number;// skip to proc# if_file exists 
+    concurrent?: Proc;    // chain another now
     // where concurrent: {...Proc} <- is a Proc
-    delay?: number;      // wait to start self, Def: 0ms
+    delay?: number;       // wait to start self, Def: 0ms
     // on trap unwatch all after a self triggered
-    trap?: true;         // remove filewatch permanently
-    silence?: Silencer;  // no stdout/console from Proc
-    cwd?: str;           // working path (untested)
-    shell?: true;        // passthrough  (untested)
+    trap?: true;          // remove filewatch permanently
+    silence?: Silencer;   // no stdout/console from Proc
+    cwd?: str;            // working path (untested)
+    shell?: true;         // passthrough  (untested)
 }
-// WIP
 // ?: true => don't pass false
+// WIP
 // cycle?: number;   // WIP - repeat self
 // immediate?: true; // no proc courtesy waits
 // ~ ~ ~
@@ -36,6 +36,11 @@ export interface Proc extends String_Keyed {
 // some => just on start&close messages
 export type Silencer = "some" | "all";
 export type Proc_Args = Array<Proc> | Proc;
+export type Fn_Callback_W_Code = (code: number) => void;
+export type Rej = (err: Error) => void;
+export type Fn_W_Callback_Args= {callback: Fn_Callback_W_Code, path?: str, fail?: Rej}
+export type Fn_W_Callback = (args: Fn_W_Callback_Args) => void;
+export type Function_Command = () => void;
 
 export interface Server_Args {
     name: str;            // start/stop labeling
@@ -58,15 +63,15 @@ export interface Server_Args {
     kill_delay?: number; // post kill wait in ms
     // "handled" to not terminate on (Ctrl-C)
     sig?: "handled";
-	override_trigger?: ()=>void;
+	override_trigger?: (path: str) => void;
     // WIP ignore delays on Proc exit/kill
     // all_proc_immediate?: true;
 }
 
 // aka wait
 export type Async_Void_F = () => Promise<void>;
-
 export type Proc_Type = "exec" | "spawn" | "execFile" | "fork";
+export type Proc_Type_Or_Fn = Proc_Type | "fn";
 
 // Logging
 export interface String_Keyed {
@@ -82,7 +87,7 @@ export interface Color_Targets extends String_Keyed {
     errata: str;
     fleck: str;
 }
-export const colors = {
+export const some_colors = {
     TECHNICOLOR_GREEN: `[0;36m`,
     LAVENDER: `[1;34m`,
     H_RED: `[1;31m`,
@@ -107,13 +112,6 @@ export interface Colors extends String_Keyed {
     errata: str;
     fleck: str;
 }
-export interface Set_Proc_Logger_Args {
-    c_proc: ChildProcess;
-    label: str;
-    silence?: Silencer;
-    env_module?: Ops;
-    on_close: (pid: number) => void;
-}
 
 // WIP
 export type Flux_Param = str | [str, str | boolean] | boolean;
@@ -122,13 +120,13 @@ export type Arg_Map = (
 	item: str | boolean, 
 	default_arg: str | boolean,
 ) => str | boolean;
-
+// WIP
 export interface Watch_Args {
     name: str;
     ops: Ops_Generator;
     debug?: Debug;
     colors?: Partial<Colors>;
-    trigger: any;
+    trigger: (path: str) => void;
     paths: Array<str> | str;
     ignore?: RegExp[];
     delay?: number;

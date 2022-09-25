@@ -18,12 +18,12 @@ Here is the simple case that is a common nodemon process
 ```
 // in start_tube.js
 import path from "path";
-import { Server } from "rawx";
+import { Server, some_colors } from "rawx";
 
 const src = path.resolve("src");
 const pkg = path.resolve("Cargo.toml");
 
-// No new class keyword now!  
+// No `new` class keyword now!  
 // let server =
 Server({
     name: "start_tube",
@@ -37,7 +37,13 @@ Server({
     // takes files & directories watches files within directories
     watch: {
 		paths: [src, pkg],
-	}
+	},
+    colors: {
+        // any subproc through-put without a color
+        default: some_colors.TECHNICOLOR_GREEN,
+        // spawns, kill and close
+        forky: some_colors.D_BLUE
+    }
 });  
 // node start_tube.js
 // or scripts: {"start": "node start_tube.js"}
@@ -51,12 +57,14 @@ within a small closure so it has a local env (for Ops)
 See the large example below for current Server usage/changes  
 Need to redo typedefs for the new Abstract class typedefs  
 Basically same as prev version, but wrapped in func closure/proxy/private class  
+Functions as Procs is WIP, expect issues. Will add an example when it's tested.   
 ```
 Version 0.1.6  
-18.3kB server.js  
+24.7kB server.js
+05.6kB  server_construct.js
 08.9kB watch.js  
-15.2kB ops.js <- new Ops class with log config factories  
-03.1kB core.js  
+12.2kB ops.js <- new Ops class with log config factories  
+03.5kB core.js  
 ```
 The module in your node_modules is kept unminified, no obtuse scaffolds  
 Source is easily read/edited ES6 even as an npm install, literally is src   
@@ -86,24 +94,26 @@ a proc is a daemon passtrough to child-process\[type\](command+args)
 // ~ ~ Typescript typedefs ~ ~ //  
 ```
 export interface Proc extends String_Keyed {
-	type: Proc_Type;     // child-process[type]...
-    command: str;        // ...[type](command ...)
-    args?: Array<str>;   // ...](command ...args)
+	type: Proc_Type_Or_Fn;// child-process[type]...
+    command: str | Fn_W_Callback;         // ...[type](command ...)
+    args?: Array<str>;    // ...](command ...args)
 	// immediately start next proc when this proc exits
     // chain another on "success"(exit 0) || any exit
     chain_exit?: "success" | true; 
 	// if not falsey defaults to "success"
-	on_watch?: true;     // delay start till a watch/trigger
-	if_file_dne?: str;   // only run if file @ path D.N.E.
-    concurrent?: Proc;   // chain another now
+	on_watch?: true;      // delay start till a watch/trigger
+	if_file_dne?: str;    // WIP
+    on_file_exists?: number;// WIP
+    concurrent?: Proc;    // chain another now
     // where concurrent: {...Proc} <- is a Proc
-    delay?: number;      // wait to start self, Def: 0ms
+    delay?: number;       // wait to start self, Def: 0ms
     // on trap unwatch all after a self triggered
-    trap?: true;         // remove filewatch permanently
-    silence?: Silencer;  // no stdout/console from Proc
-    cwd?: str;           // working path (untested)
-    shell?: true;        // passthrough  (untested)
+    trap?: true;          // remove filewatch permanently
+    silence?: Silencer;   // no stdout/console from Proc
+    cwd?: str;            // working path (untested)
+    shell?: true;         // passthrough  (untested)
 }
+
 // some => just on start&close messages
 export type Silencer = "some" | "all";
 export type Proc_Args = Array<Proc> | Proc;
@@ -149,7 +159,7 @@ export interface Server_Args {
     kill_delay?: number; // post kill wait in ms
     // "handled" to not terminate on (Ctrl-C)
     sig?: "handled";
-	override_trigger?: ()=>void;
+	// override_trigger WIP
     // WIP ignore delays on Proc exit/kill
     // all_proc_immediate?: true;
 }
@@ -166,7 +176,7 @@ export interface Color_Targets {
 	fleck: str;
 }
 // Starter paste for any targets
-export const Colors = {
+export const some_colors = {
 	TECHNICOLOR_GREEN: `[0;36m`,
 	LAVENDER: `[1;34m`,
 	H_RED: `[1;31m`,
@@ -179,14 +189,15 @@ export const Colors = {
 ```
 Default colors
 ```
-const colors = {
-	label: Colors.LAVENDER,
-	default: Colors.TECHNICOLOR_GREEN,
-	forky: Colors.PURPLE,
-	lightly: Colors.D_BLUE, // TODO oops darkly
-	errata: Colors.H_RED,
-	fleck: Colors.D_BLUE,
-};
+    ...
+    colors: {
+        label: some_colors.LAVENDER,
+        default: some_colors.TECHNICOLOR_GREEN,
+        forky: some_colors.PURPLE,
+        lightly: some_colors.D_BLUE, // TODO oops darkly
+        errata: some_colors.H_RED,
+        fleck: some_colors.D_BLUE,
+    }
 ```
   
 Instantiate an Ops class if you want to for anything  
@@ -226,21 +237,12 @@ Config example to operate a web_app with a local_store partner server
 // ~ ~  Concurrent Server / conjoined logging ~ ~ //  
 ```
 import path from "path";
-import { Server } from "rawx";
+import { Server, some_colors } from "rawx";
 
 import dot_env_module from "dotenv";
 // .env @ the top of project
 const dot_env = dot_env_module.config({ path: ".env" }).parsed;
 const { WEB_APP_PORT } = dot_env;
-
-const colors = {
-    TECHNICOLOR_GREEN: `[0;36m`,
-    LAVENDER: `[1;34m`,
-    H_RED: `[1;31m`,
-    PURPLE: `[0;35m`,
-    D_BLUE: `[0;34m`,
-    NEON_YELLOW: `[1;33m`,
-};
 
 const debug = 2;
 const web_context = path.resolve(".");
@@ -273,17 +275,17 @@ Server({
     name: "storage_api_server",
     procs: storage_procs,
     watch: {
-        files: [storage_api_context].concat(shared_files),
+        paths: [storage_api_context].concat(shared_files),
         watch_ignore: /\/|\\(?:backup_data)|(?:file_store)/,
         poll: 4000,
     },
     trigger_index: 0, // always start from 0
     colors: {
-        default: colors.LAVENDER,
-        forky: colors.PURPLE,
-        fleck: colors.LAVENDER,
-        label: colors.LAVENDER,
-        lightly: colors.NEON_YELLOW,
+        default: some_colors.LAVENDER,
+        forky: some_colors.PURPLE,
+        fleck: some_colors.LAVENDER,
+        label: some_colors.LAVENDER,
+        lightly: some_colors.NEON_YELLOW,
     },
     debug: 2,
 });
@@ -360,24 +362,25 @@ Server({
         paths: [web_app_root].concat(shared_files),
         poll: 30000,
         // incase of error on 0/1/2 later a watch triggers 3
-        debug: 10, // noisy for new config => <3/4 normally
+        debug: 2,
         colors: {
-            default: colors.D_BLUE,
-            forky: colors.D_BLUE,
-            label: colors.D_BLUE,
-            fleck: colors.D_BLUE,
-            lightly: colors.D_BLUE,
+            default: some_colors.D_BLUE,
+            forky: some_colors.D_BLUE,
+            label: some_colors.D_BLUE,
+            fleck: some_colors.D_BLUE,
+            lightly: some_colors.D_BLUE,
         },
     },
     debug,
     colors: {
-        default: colors.TECHNICOLOR_GREEN,
-        forky: colors.D_BLUE,
-        label: colors.TECHNICOLOR_GREEN,
-        fleck: colors.TECHNICOLOR_GREEN,
-        lightly: colors.NEON_YELLOW,
+        default: some_colors.TECHNICOLOR_GREEN,
+        forky: some_colors.D_BLUE,
+        label: some_colors.TECHNICOLOR_GREEN,
+        fleck: some_colors.TECHNICOLOR_GREEN,
+        lightly: some_colors.NEON_YELLOW,
     },
 });
+
 // ~ ~ ~
 // package.json
 scripts: {
@@ -429,6 +432,8 @@ uuid, research why exactly is Math.random bad? (see crypto)
   
 // ~ ~  
 This is a good place to stop if you are just using `rawx` typically, good hunting.  
+// ~ ~  
+The rest of the Readme needs a schema update!  
 // ~ ~  
   
 Here is a meta(ish) watcher that also restarts the proc if the node.js server file changes  
@@ -567,18 +572,14 @@ Anything_merged_would_likely_receive_fair_mod_if_ications and be license.kind
 FYI, underscore under a finger at rest is a speed coding superpower... but ugly  
   
 ## Bumping packages for pull request
-To expediate pack ups if you need that ->  
-Delete devDependencies & dependencies sections from package.json  
-Then fax me @ (yes)-lol-nope & I'll get it right chipper  
+To expediate re-pack version-ups if you need that ->  
 ```
 rm -f node_modules package-lock.json  
 npm i --save path tree-kill uuid @types/uuid  
-npm i -D typescript @digitak/tsc-esm rimraf typescript @types/node  
+npm i -D typescript rimraf typescript @types/node  
 // note: path uuid & tree-kill are the external install deps  
-```
-After above remove ^ and patch from all deps as it is currently for stability     
+```   
 Thank you if you do this and apologies if I don't see the PR immediately    
-I try to not get sticky with package-lock.json, but the dep chain here is light    
 License is freeware.kindware ~ license.kind ~ repackage however you wish    
 ## If You_
 _are a profesional ops person and have forked or repacked this module,  
