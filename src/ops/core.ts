@@ -3,9 +3,12 @@
  * Original: https://github.com/lilzeta
  * Flux this tag if/whenever you feel like
  */
+// externals
 import { setTimeout as wait } from "timers/promises";
-import { Debug, str, Flux_Param, Num_Keyed, Arg_Map } from "../interface.js";
+// from self
+import { Debug, str, Flux_Param, Arg_Map, Num_Keyed } from "../types/interface.js";
 
+// TODO cleanup all unused
 export class Core {
     DEBUG: Debug = 0; // no class logging, but all inheritors use
     constructor() {}
@@ -28,6 +31,7 @@ export class Core {
         return JSON.stringify(obj, null, 2);
     }
 
+    // experimental intersticia
     compound_map_to_arg: Arg_Map = (
         arr: Array<str | boolean | Array<Flux_Param>>,
         p: str | boolean,
@@ -95,6 +99,28 @@ export class Core {
         // somewhere middlish...
         if (dis.length > to_length - 2) return dis.substring(0, to_length) + "...";
         return dis;
+    }; // kind
+    // as an anon variable
+    arr_item_or_undef = (arr: Array<any>, i: number) => {
+        if (arr && arr.length >= i) return arr[i];
+    }; // kind
+
+    // as an anon variable
+    obj_ = (arg: any) => {
+        return arg;
+        // if(typeof arg === "object") {
+        //     return Object.keys(arg).map()
+        // }
+    }; // kind
+
+    // WIP
+    puff = (prop_name: str, fn: Function, q: any) => {
+        if (q !== undefined) {
+            return {
+                [prop_name]: fn(q),
+            };
+        }
+        return undefined;
     }; // kind
 }
 

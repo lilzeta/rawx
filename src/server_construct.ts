@@ -1,111 +1,173 @@
 /***
- * license kind, whatever you want
+ * license.kind
  * Original: https://github.com/lilzeta
  * Flux this tag if/whenever you feel like
  */
+// externals
 import { ChildProcess } from "child_process";
-import { Watch, Watch_Abstract } from "./watch.js";
-import { Server_Args, Proc_Args, Flux_Param, Colors } from "./interface.js";
-import { Proc, str, Debug } from "./interface.js";
 import { v4 as __id } from "uuid";
-import { Ops_Generator } from "./util/ops.js";
-import Core from "./util/core.js";
+import { format } from "util";
+// from self
+import { Watch, Watch_Abstract } from "./watch.js";
+import { Server_Args, Flux_Param, Color_Targets } from "./types/interface.js";
+import { Server_Watch_Arg, Pre_Init_Procs_Arg } from "./types/interface.js";
+import { str, Debug } from "./types/interface.js";
+// external
+import { Proc_Arg_Exec, Proc_Arg_Def, A_Proc_Arg } from "./types/proc_interface.js";
+import { Proc_Arg_Fork, Hook_Arg } from "./types/proc_interface.js";
+// internal
+import { _Proc_Fork, _Proc_Exec, _Proc_Def } from "./types/proc_interface.js";
+import { _Run_Proc_Conf, _Proc, _Hook_Fn } from "./types/proc_interface.js";
+import { Ops_Gen, Ops } from "./ops/ops.js";
 
-// Simple class proxy for exporting bypassing the private typedef closure
-// abstract class Server_Abstract {
-//     constructor(_args: Server_Args) {}
-//     abstract restart: () => void;
-// }
+// set in constructor
+let o: Ops;
 
-// export type Server = (args: Server_Args) => Server_Abstract;
-export interface Server_Constructor_Watch_Args {
-    trigger: (path: str) => void;
-    watch: Server_Args["watch"];
-    parent_colors: Colors;
-}
+export const number_mins: Record<str, number> = {
+    debug: 0,
+    kill_delay: 50,
+    exit_delay: 50,
+    pulse: 400,
+};
 
 // Core is logging and utilities
-export abstract class Server_Construct extends Core {
-    ops: Ops_Generator;
+export abstract class Server_Construct {
+    ops: Ops_Gen;
+    name: str = "";
+    label: str = ""; // Not an arg, name.translated
     debug: Debug = 2;
-    name?: str;
-    label?: str;
-    procs: Array<_Proc>; // used to reset stack if trigger_index
-    step_procs: Array<_Proc>; // used as current stack
-    range_cache: Array<_Proc>;
+    // aka wait for port to clear
+    kill_delay = 3000; // in ms
+    // yet to determine if we need to allow last proc any log time
+    exit_delay = 3000; // in ms
+    procs: Array<_Proc | _Hook_Fn>; // used to reset stack if trigger_index
+    step_procs: Array<_Proc | _Hook_Fn>; // used as current stack
+    range_cache: Array<_Proc | _Hook_Fn>;
     last_range_at: number; // is the last range cache valid?
-    watch: Array<str>;
-    watch_ignore: RegExp;
-    watchers: Watch_Abstract;
+
+    watch: Watch_Abstract;
+    watch_args: Server_Watch_Arg;
+    colors: Color_Targets;
+
+    // These are aliased into Watch for now
     trigger_index?: number;
-    last_path_triggered: str;
+    trigger_indices?: number[];
     // uuid of the most recent chain
     tubed?: str = undefined;
     // still incomplete feature
     tube_lock?: true;
     running?: Array<ChildProcess> = [];
     live_functions: Record<str, str> = {};
-    // aka wait for port to clear
-    kill_delay = 3000; // in ms
-    // yet to determine if we need to allow last proc any log time
-    exit_delay = 3000; // in ms
+    // likely uncommon first is not 0?
+    first_proc: number = 0;
+    out?: str;
     // pulse: {
     //     // WIP chaperone (~watch dist oops)
     //     last_stamps: Array<number>;
     // };
     // hash: any = {};
     constructor(args: Server_Args) {
-        super();
         const { name, watch, colors, ...opts } = args;
-        if (name?.length) {
-            this.name = name;
-            this.label = `${name}|Server`;
+        const { trigger_index, trigger_indices } = opts;
+        if (args.debug !== undefined) {
+            this.debug = args.debug;
         }
-
-        if (opts.debug !== undefined) {
-            // it's outside the class for some reason, WIP logging support module
-            this.debug = opts.debug;
+        if (args.name?.length) {
+            this.name = args.name;
+            this.label = `${args.name}|Server`;
         }
-        this.ops = new Ops_Generator({ log_ignore: opts.log_ignore });
+        // First global call sets the default cache/base (this is fallback/basis)
+        Ops({ log_ignore_reg_repl: opts.log_ignore_reg_repl }); // ignore basis Ops
+        // Reuse Generator with full confs
+        o = Ops({
+            colors: args.colors,
+            debug: this.debug,
+            label: this.label,
+        });
 
+        this.check_valid_and_assign(args);
         let { procs, proc } = opts;
-        this.trigger_index = opts.trigger_index;
-        if (this.defi(opts.kill_delay)) {
-            if (typeof opts.kill_delay === "number") {
-                // o.lightly(1, "" + opts.kill_delay);
-                this.kill_delay = opts.kill_delay;
-            } else {
-                throw new Error("Use a number type to pass kill_delay.");
-            }
+        this.watch_args = watch;
+        this.colors = colors;
+
+        this.setup_procs({ procs, proc });
+        if (watch) {
+            this.trigger_index = trigger_index;
+            this.trigger_indices = trigger_indices;
+            this.validate_triggers();
+            this.setup_watch();
         }
-        this.setup_procs({ procs, proc, trigger_index: this.trigger_index });
+        o._l(6, `Server_Construct constructor has completed, without known errors for Server`);
+    }
+    validate_triggers() {
+        if (o.defi(this.trigger_index) && this.trigger_index > this.procs.length)
+            throw new Error(`trigger_index must not be larger than procs size.`);
+        if (o.defi(this.trigger_indices)) {
+            if (this.trigger_index)
+                throw new Error(`trigger_index cannot be used with trigger_indices.`);
+            const q = "Pass undefined to skip indexes, ";
+            // WIP !! complex[0].paths // this.trigger_indices.length
+            if (this.watch_args.complex) {
+                if (this.watch_args.complex[0].paths.length !== this.trigger_indices.length)
+                    throw new Error(
+                        `${q}trigger_indices.length must match watch.complex...paths.length.`,
+                    );
+            } else {
+                if (this.watch_args.paths.length !== this.trigger_indices.length) {
+                    throw new Error(
+                        `${q}trigger_indices.length must match watch.paths.length.`,
+                    );
+                }
+            } // WIP validation
+            // throw new Error(`trigger_index must not be larger than procs size.`);
+        }
     }
 
-    setup_watch({ trigger, watch, parent_colors }: Server_Constructor_Watch_Args) {
-        if (watch?.paths?.length) {
-            this.watchers = Watch({
-                ops: this.ops,
-                paths: watch.paths,
-                trigger,
+    setup_watch() {
+        const watch_args = this.watch_args;
+        const parent_colors = this.colors;
+        o._l(7, `setup_watch - watch.complex: `);
+        o._l(7, watch_args.complex);
+        if (watch_args.complex) {
+            this.setup_multi_watch();
+            return;
+        }
+        // convert singular to an array
+        if (typeof watch_args?.paths === "string") {
+            watch_args.paths = [watch_args.paths];
+        }
+        if (watch_args?.paths?.length) {
+            // if(watch.)
+            // this.watchers =
+            this.watch = Watch({
+                paths: watch_args.paths,
                 name: this.name,
                 debug: this.debug, // overridden if watch.debug
-                ignore: watch.ignore,
-                colors: {
-                    ...(parent_colors && {
-                        ...parent_colors,
-                    }),
-                },
-                ...watch,
+                ...o.puff("colors", (s: str) => s, parent_colors),
+                trigger_index: this.trigger_index,
+                trigger_indices: this.trigger_indices,
+                // as in the Server.watch arg
+                ...watch_args,
                 // note not passing ops causes some inconsistencies, rather share
             });
         }
     }
 
-    // proc becomes this.procs=[proc] ... &some sensible checks
-    setup_procs({ procs: in_procs, proc: in_proc, trigger_index }: _Initialize_Procs_Args) {
-        let procs: Array<Proc>;
-        if (this.defi(in_procs)) {
-            if (this.defi(in_proc)) throw new Error(`Server accepts only one of procs or proc.`);
+    setup_multi_watch() {
+        this.watch = Watch({
+            name: this.name,
+            colors: {
+                ...this.colors,
+            },
+            ...this.watch_args,
+        });
+    }
+
+    // map proc/procs to arr of _Proc ... &some sensible checks
+    setup_procs({ procs: in_procs, proc: in_proc }: Pre_Init_Procs_Arg) {
+        let procs: Array<A_Proc_Arg>;
+        if (o.defi(in_procs)) {
+            if (o.defi(in_proc)) throw new Error(`Server accepts only one of procs or proc.`);
             if (Array.isArray(in_procs)) {
                 procs = in_procs;
             } else {
@@ -115,69 +177,255 @@ export abstract class Server_Construct extends Core {
             if (Array.isArray(in_proc)) {
                 procs = in_proc;
             }
-            procs = [in_proc as Proc];
+            procs = [in_proc as A_Proc_Arg];
         }
 
         if (!procs.length)
             throw new Error(`Server requires one of procs or proc, to contain a proc.`);
-        if (this.defi(trigger_index) && trigger_index > procs.length)
-            throw new Error(`trigger_index must not be larger than procs size.`);
-        this.trigger_index = trigger_index;
-        let chain_exit;
-        // disallow circularly concurrent chain, edit source if you a bold one _lol`
-        const and_no_turtles = (proc: Proc | _Proc): _Proc | undefined => {
-            if ((proc as _Proc).proc_id) return undefined;
-            let label: str;
-            if (typeof proc.command === "function") label = this.pretty(proc.command);
-            else label = proc.command;
-            let as_internal_Proc: _Proc = Object.assign(proc, {
-                proc_id: __id(),
-                label: `[${proc.type}](${this.truncate(label, 14)})`,
-                ...(proc.concurrent && {
-                    concurrently: and_no_turtles(proc.concurrent),
-                }),
-                ...(this.defi(
-                    (chain_exit = this.compound_map_to_arg(
-                        chain_exit_allowed,
-                        proc.chain_exit,
-                        undefined,
-                    )),
-                ) && { chain_exit }),
-            });
-            // internal only chrono (Todo whats this called? a ~tic/toc er)
-            // if (coerced.on_watch) coerced.on_watch = true;
-            return as_internal_Proc;
-        };
+
         this.procs = [];
         let jiggler;
         for (let proc of procs) {
-            (jiggler = and_no_turtles(proc)) && this.procs.push(jiggler);
+            (jiggler = this.no_circular_tree_map(proc)) && this.procs.push(jiggler);
         }
-        this.set_range(0);
+        if (this.first_proc >= this.procs.length)
+            throw new Error(
+                `first_proc: ${this.first_proc} is not in range of procs: ${this.procs.length}`,
+            );
+        this.set_range(this.first_proc);
+    }
+
+    // Proc to _Proc
+    check_proc_valid_then_coerce = (
+        proc: A_Proc_Arg | _Proc,
+    ): _Proc | _Hook_Fn | undefined => {
+        // disallow circularly concurrent chain, edit source if you a bold one _lol`
+        if ((proc as _Proc).proc_id) return undefined;
+        proc = proc as A_Proc_Arg;
+        let label: str;
+        if (!proc.type) {
+            const err = `Server [142] - type && command missing, Fatal proc: ${o.pretty(
+                proc,
+            )}`;
+            throw new Error(err);
+        }
+
+        if (this.is_fn_proc(proc)) {
+            let fn_proc = proc as Hook_Arg;
+            label = o.pretty(fn_proc.fn);
+            label = o.truncate(label, 25);
+            // shouldn't get a warn if type-safe? - fatal
+            if (!fn_proc.fn) {
+                const err = `Server [142] - fn missing from fn proc, Fatal. proc: ${o.pretty(
+                    proc,
+                )}`;
+                throw new Error(err);
+            }
+        } else {
+            let proc_ = proc as Proc_Arg_Exec | Proc_Arg_Def;
+            if (!proc_.command) {
+                const err = `Server [142] - command missing from proc, Fatal. proc: ${o.pretty(
+                    proc,
+                )}`;
+                throw new Error(err);
+            }
+            label = proc_.command;
+        }
+        return this.Proc_Arg_As_A_Proc(proc as A_Proc_Arg, label);
+    };
+    // I like turtles
+    no_circular_tree_map = (proc: A_Proc_Arg | _Proc): _Proc | _Hook_Fn | undefined => {
+        // because A_Proc_Arg.concurrently could be in tree as _A_Proc already
+        if ((proc as _Proc).proc_id) return undefined;
+        // since no proc_id, proc is a A_Proc_Arg (not circular)
+        proc = proc as A_Proc_Arg;
+        let label: str;
+        if (this.is_fn_proc(proc)) {
+            let fn_proc = proc as Hook_Arg;
+            // util.format for label
+            label = format(fn_proc.fn);
+        } else {
+            // TODO (more like this)
+            if (proc.type === "exec") {
+                if ((proc as any).args)
+                    throw new Error(`proc.args are not allowed with {type: exec}`);
+                label = o.truncate(`[${proc.type}] - ${proc.command}] `, 35);
+            } else if (proc.type === "fork") {
+                let _proc: Proc_Arg_Fork = proc as Proc_Arg_Fork;
+                // TODO
+                label = o.truncate(`[${_proc.type}](${_proc.module}] `, 35);
+            } else {
+                let _proc: Proc_Arg_Def = proc as Proc_Arg_Def;
+                label = o.truncate(
+                    `[${_proc.type}](${_proc.command} args:[${_proc.args?.join(" ")}] `,
+                    30,
+                );
+            }
+        }
+        return this.Proc_Arg_As_A_Proc(proc as A_Proc_Arg, label);
+    };
+    Proc_Arg_As_A_Proc(proc_arg: A_Proc_Arg, label: str): _Proc {
+        let chain_exit; // jiggler
+        let as_internal_proc = Object.assign(proc_arg, {
+            proc_id: __id(),
+            ...(proc_arg.concurrent && {
+                concurrent: this.no_circular_tree_map(proc_arg.concurrent),
+            }),
+            sidecar: {
+                ...((label.length && {
+                    label,
+                }) ||
+                    ""),
+                ...(proc_arg.silence && { silence: proc_arg.silence }),
+            },
+            // This may be temporary, rather just do it the right way or throw
+            // chain_exit_allowed: Array<Flux_Param> = ["success", ["always", true]];
+            // maps "always" to true, allows "success", throws on misconfiguration
+            ...(o.defi(
+                (chain_exit = o.compound_map_to_arg(
+                    chain_exit_allowed,
+                    proc_arg.chain_exit,
+                    undefined,
+                )),
+            ) && { chain_exit }),
+        });
+
+        // This just preps each proc up front so we only need to once
+        if (proc_arg.type === "exec") {
+            const process_proc: _Proc_Exec = as_internal_proc as unknown as _Proc_Exec;
+            process_proc.construct = {
+                type: proc_arg.type,
+                command: proc_arg.command,
+            };
+            return process_proc;
+        } else if (!this.is_fn_proc(as_internal_proc)) {
+            const process_proc: _Proc_Def = as_internal_proc as unknown as _Proc_Def;
+            process_proc.construct = this.set_run_proc_construct(proc_arg as Proc_Arg_Def);
+            return process_proc;
+        }
+        return as_internal_proc as _Hook_Fn;
     }
     // at should be undefined on first call, intentionally
     // Shallow clone so flash proc changes {...}
     set_range(at: number) {
-        if (at === this.last_range_at) return;
+        if (at === this.last_range_at) {
+            this.step_procs = [...this.range_cache];
+            return;
+        }
         this.last_range_at = at;
         this.range_cache = [];
         for (let i = at; i < this.procs.length; i++) this.range_cache.push(this.procs[i]);
         this.step_procs = [...this.range_cache];
     }
+    is_fn_proc(proc: A_Proc_Arg | _Proc) {
+        return proc.type === "exec_fn" || proc.type === "fn";
+    }
+    // TODO this is hacky, needs not unsafe setters
+    set_self(arg_name: keyof Server_Construct, value: any) {
+        (this as any)[arg_name] = value;
+    }
+    // TODO this is hacky, needs not unsafe setters
+    // get_self = (arg_name: keyof Server_Construct) => (this as any)[arg_name].value;
+    check_valid_and_assign(args: Server_Args) {
+        type Server_Args_K = keyof Server_Args;
+        type Server_Construct_K = keyof Server_Construct;
+        const str_keyed: Array<keyof Server_Args> = ["name"];
+        str_keyed.forEach((arg_name: keyof Server_Args) => {
+            if (o.defi(args[arg_name])) {
+                if (typeof args[arg_name] === "string") {
+                    this.set_self(arg_name as Server_Construct_K, args[arg_name]);
+                } else {
+                    throw new Error(`Use a number type arg to set Server.${arg_name}.`);
+                }
+            } else {
+                if (args[arg_name] === null) {
+                    this.set_self(arg_name as Server_Construct_K, undefined);
+                }
+            }
+            // else ignore undefined/false
+        });
+
+        const numeric: Array<keyof Server_Args> = [
+            "debug",
+            "trigger_index",
+            "kill_delay",
+            "first_proc",
+        ];
+        numeric.forEach((arg_name: Server_Args_K) => {
+            let value: number;
+            if (o.defi(args[arg_name])) {
+                if (typeof args[arg_name] === "number") {
+                    value = args[arg_name] as number;
+                } else {
+                    throw new Error(`Use a number type arg to set Server.${arg_name}.`);
+                }
+            } else {
+                if (args[arg_name] === null) {
+                    value = 0;
+                }
+            }
+            if (o.defi(value)) {
+                // Safe usage is still the responsibility of the user
+                if (o.defi(number_mins[arg_name])) {
+                    value = Math.max(value, number_mins[arg_name]);
+                }
+                this.set_self(arg_name as Server_Construct_K, value);
+            }
+        });
+        if (o.defi(args.trigger_indices)) {
+            if (args.trigger_indices.length !== args.watch.paths.length) {
+                let err = "args.trigger_indices.length should equal watch.paths.length";
+                err += "passing undefined for a path without a trigger is effective, ";
+                err += "or pass no trigger_indices";
+                throw new Error(err);
+            }
+
+            this.trigger_indices = args.trigger_indices;
+        }
+    }
+    set_run_proc_construct({ type, command, ...opts }: Proc_Arg_Def): _Run_Proc_Conf {
+        let { cwd, shell } = opts;
+        let { args } = opts;
+        if (o.defi(args)) {
+            if (!Array.isArray(args)) {
+                throw new Error(`proc.args is not an array`);
+            }
+        } else {
+            args = [];
+        }
+        // TODO test
+        // https://stackoverflow.com/questions/37459717/error-spawn-enoent-on-windows)
+        shell = shell ?? process.platform == "win32" ? true : undefined;
+        // TODO testing
+        return {
+            type,
+            command,
+            args,
+            ...((cwd || shell) && {
+                options: {
+                    ...(cwd && { cwd }),
+                    ...(shell && { shell }),
+                },
+            }),
+        };
+    }
 }
+
 // local stuff for now, 'experimenting' mode with argmaps like this
 const chain_exit_allowed: Array<Flux_Param> = ["success", ["always", true]];
-export interface _Proc extends Proc {
-    belay?: true;
-    proc_id: str;
-    concurrently: _Proc;
-    label: str;
-}
-export interface _Initialize_Procs_Args {
-    procs?: Proc_Args;
-    proc?: Proc_Args;
-    trigger_index?: number;
-}
 
 // `is called like Server(args)` with no new keyword
 export default Server_Construct;
+
+// Experimental stuff
+// if (this.defi(args.override_trigger)) {
+//     this.restart = async (file_path: str) => {
+//         await this.kill_all();
+//         await wait(this.kill_delay);
+//         if (o.defi(this.trigger_index)) {
+//             this.set_range(this.trigger_index);
+//             this.step_procs = [...this.range_cache];
+//         }
+//         args.override_trigger(file_path);
+//     };
+// }

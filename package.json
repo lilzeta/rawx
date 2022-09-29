@@ -1,6 +1,6 @@
 {
     "name": "rawx",
-    "version": "0.1.9",
+    "version": "0.2.0",
     "private": false,
     "type": "module",
     "license": "kind",
@@ -12,8 +12,9 @@
         "pack": "cd dist && npm pack",
         "release": "npm run build && npm run _post_build && cd dist && npm pack",
         "pub": "npm run release && cd dist && npm publish",
-        "reref": "npm run release && npm i -D \"./dist/rawx-0.1.7.tgz\"",
-        "start": "npm run reref && node test/meta.js"
+        "reref": "npm i --save-dev \"./dist/rawx-0.2.0.tgz\"",
+        "_reref": "npm run release && npm i -D \"./dist/rawx-0.2.0.tgz\"",
+        "start": "node test/meta.js"
     },
     "repository": {
         "type": "git",
@@ -30,7 +31,7 @@
     "author": "https://github.com/lilzeta",
     "devDependencies": {
         "@types/node": "^18.7.20",
-        "rawx": "file:dist/rawx-0.1.7.tgz",
+        "rawx": "file:dist/rawx-0.1.10.tgz",
         "rimraf": "^3.0.2",
         "typescript": "^4.7"
     },

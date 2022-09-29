@@ -1,195 +1,201 @@
 /***
- * license kind, whatever you want
+ * license.kind
  * Original: https://github.com/lilzeta
  * Flux this tag if/whenever you feel like
  */
+// externals
 import fs, { watchFile, unwatchFile } from "fs";
-import { str, Watch_Args } from "./interface.js";
-const { readdir, stat } = fs.promises;
-import path from "path";
-import { Ops_Generator, Ops } from "./util/ops.js";
+// from self
+import { Complex, str, Watch_Args } from "./types/interface.js";
+import { Ops } from "./ops/ops.js";
+import { File_Tree } from "./file_tree/tree_files.js";
+import { Complex_File_Tree } from "./file_tree/tree_complex.js";
 
 // pause before monitoring the args.src / an Array | dir(s) | file /
 const DEFAULT_INITIAL_WATCH_DELAY = 3500;
-
-// no context ~ paths here are absolute
-const MAX_DEPTH = 6;
-const ABYSS_DEBUG = true; // as in console.log
-
-// some WIP mess
-// const is_json = (f: string) => /[.]json/.exec(f);
-// const is_tsconfig = (f) => /tsconfig[.]json/.exec(f);
-// ~ tsconfig.storage_api-blah.blah.json
-// const is_some_tsconfig = (f: string) => /tsconfig[.a-zA-Z\_\-]*[.]json/.exec(f);
-// \/|\\ -> either /dist or \dist - dist w/some non-optional seperator prepended
-// (f: string) => {
-//     // the parens around the last two are implied via syntax
-//     return is_dist(f) || is_log(f) || is_etc(f) || (is_json(f) && !is_some_tsconfig(f));
-// };
-
-const IGNORE_REGEX_global = [/[.]log/, /\/|\\dist/, /log[.]sh/];
-
 export abstract class Watch_Abstract {
     constructor(_args: Watch_Args) {}
-    abstract watches_clear: () => void;
+    abstract watches_clear: () => Promise<void>;
+    abstract set_trigger: (fn: Watch_Trigger) => void;
 }
-
+export type Trigger = number | undefined;
+export type Trigger_Map = Array<Trigger>;
+export type Full_Trigger_Map = Array<Trigger_Map>;
 export type Watch_Proxy = (args: Watch_Args) => Watch_Abstract;
+export type Watch_Trigger = (path: str, target?: number) => void;
 export const Watch: Watch_Proxy = (args: Watch_Args) => {
     // // set in constructor
     let o: Ops;
 
     // nothing explicitly async
-    class _Watch implements Watch_Abstract {
+    class _Watch extends Watch_Abstract {
         debug: number = 2;
-        trigger: (path: str) => void;
-        watch: Array<string>;
-        ignore?: RegExp[] = IGNORE_REGEX_global;
-        watchers: Array<any> = [];
+        // for both _file_tree/_complex
+        // trigger: (path: str, target?: number) => void;
+        // fallback or default if no specifily aligned trigger
+        trigger_index?: number;
+        // if using trigger_indices - length should match watch.paths
+        trigger_indices?: Full_Trigger_Map;
+        simple_trigger_indices?: Array<number>;
         full_file_paths: Array<string> = [];
         path_hasher: Array<any> = [];
         poll: number = 5000;
-
-        // watch: Array of full paths | dir - full_root_src_dir_path | single file - fullpath
-        constructor({ ops, paths, trigger, name, ignore, ...opts }: Watch_Args) {
+        // Either: _file_tree for single tree, _complex for fully explicated forest
+        _file_tree: File_Tree;
+        _complex: Complex_File_Tree;
+        constructor(args: Watch_Args) {
+            super(args);
+            let { paths, name, ...opts } = args;
             let label: str | undefined;
             if (name?.length) label = `${name}|Watcher`;
-            if (opts.debug !== undefined) this.debug = opts.debug;
-            // else label = `Watcher - `;
-            // An Env Configured Ops rebased for `Watch`
-            if (!ops) ops = new Ops_Generator();
-            o = ops.ops_with_conf({ colors: opts.colors, debug: this.debug, label });
-            // If used stand-alone only create if opts.files ... Fatal, configuration must be valid
-            if (!paths?.length)
-                throw new Error("No need for a special proc if no path(s) to watch.");
-            if (!trigger) throw new Error("No need for watch if no trigger.");
-            this.trigger = trigger; // trigger = an async fn
-            if (ignore) {
-                if (!Array.isArray(ignore)) throw new Error("Watch.ignore is not an array");
-                this.ignore = [...ignore, ...this.ignore];
+            else label = "";
+            if (args.debug !== undefined) {
+                this.debug = args.debug;
             }
+            // An Env Configured Ops rebased for `Watch`
+            o = Ops({ colors: opts.colors, debug: this.debug, label });
+            // If used stand-alone only create if opts.files ... Fatal, configuration must be valid
+            if (!paths?.length && !args.complex)
+                throw new Error("No need for a special proc if no path(s) to watch.");
+            if (o.defi(args.trigger_index)) this.trigger_index = args.trigger_index;
+            const { complex, match, trigger_index } = opts;
+            if (o.defi(args.complex)) {
+                // Doesn't use watch.paths right now
+                this._complex = new Complex_File_Tree({
+                    complex,
+                    match,
+                    max_depth: 7,
+                });
+                this.trigger_indices = this.map_complex_triggers({
+                    complex,
+                    default_trigger: trigger_index,
+                });
+            } else {
+                this.simple_trigger_indices = args.trigger_indices;
+                this._file_tree = new File_Tree({
+                    root_paths: paths,
+                    match,
+                });
+            }
+            // this.trigger = trigger; // trigger = an async fn
             if (o.defi(opts.poll)) {
                 if (typeof opts.poll === "number") {
                     this.poll = Math.max(opts.poll, 1000);
                 } else {
-                    throw new Error("Unrecognized Watcer arg: poll, number only");
+                    throw new Error("Validation of Watch.poll arg failed, number only");
                 }
             }
-            // prepare all the paths & subpaths
-            this.init_watch_list(paths);
             let watch_delay = opts.delay;
-            if (watch_delay === undefined) {
+            if (!o.defi(watch_delay)) {
                 watch_delay = DEFAULT_INITIAL_WATCH_DELAY;
             }
-            // from syncronous to syncronous
+
+            // from syncronous to asyncronous
             setTimeout(() => {
-                this.watch_start();
+                if (!this.trigger) {
+                    throw new Error(
+                        "Instantiation of Watch is incomplete, trigger must be set",
+                    );
+                }
+                this.watch_start().catch(); // TODO other solution to engage promises?
                 const watch_log = `watch constructor completed & watch has started. f:[${this.full_file_paths.length}]`;
-                o.lightly(7, watch_log);
+                o.accent(6, watch_log);
             }, watch_delay);
         }
-        init_watch_list(files: Watch_Args["paths"]) {
-            try {
-                if (Array.isArray(files)) {
-                    this.watch = files;
-                    this.watch.forEach((full_path) => {
-                        this.initialize_path(full_path, 1);
-                    });
-                } else {
-                    // singular
-                    this.watch = [files];
-                    this.initialize_path(files);
-                }
-            } catch (err) {
-                const err_copy = `src file/dir not found or stat failed, fix/use fullpath(s) - err: ${err}`;
-                o._l(1, `${err_copy}`);
-                // Fatal, configuration must be valid
-                throw new Error(err_copy);
-            }
-        }
-        watch_start() {
-            this.full_file_paths.forEach((full_path) => {
-                // o._l(1,`server_proc.js | [${this.name}] - watch: ${full_path}`);
-                // USE_PATH_test since dist/ or *.log can be inside watch dir
-                this.watchers.push(
-                    watchFile(full_path, { interval: this.poll }, this.watch_hit(full_path)),
-                );
-            });
 
-            o._l(10, `watch_init completed, watching paths:\n${o.pretty(this.full_file_paths)}`);
-        }
-        any_regex_match = (reg: RegExp[], full_path: str) => {
-            for (let i = 0; i < reg.length; i++) if (reg[i].exec(full_path)) return true;
-            return false;
-        };
-        // truthy/falsy not a boolean _ b cause named nice & with read-ablity
-        _ignore_path(full_path: string) {
-            return this.any_regex_match(this.ignore, full_path);
-        }
-        initialize_path(a_path: string, depth = 0) {
-            // path_hasher not yet, just a safety (we have depth limit working)
-            // not well tested
-            if (this.path_hasher[encodeURIComponent(a_path) as any] || this._ignore_path(a_path))
-                return;
-            // </circular linkage avoidance>
-            this.path_hasher[encodeURIComponent(a_path) as any] = 1; // now is some truthy
+        // Must be done immediately from an injector/instatiator/partner/server ...
+        public set_trigger = (fn: Watch_Trigger) => (this.trigger = fn);
+        trigger: Watch_Trigger | undefined = undefined;
 
-            try {
-                o._l(10, `watch path: ${a_path}`);
-                const stat_pr = stat(a_path);
-                stat_pr.then((stat_info) => {
-                    if (!stat_info.isDirectory()) {
-                        // single file -> watch q
-                        this.full_file_paths.push(a_path);
-                    } else {
-                        if (depth < MAX_DEPTH) {
-                            readdir(a_path).then((filenames) =>
-                                filenames.forEach((filename) => {
-                                    let next_path = path.resolve(a_path, filename);
-                                    this.initialize_path(next_path, depth + 1);
-                                }),
-                            );
-                        } else {
-                            if (ABYSS_DEBUG) {
-                                o._l(
-                                    2,
-                                    `the members of this deep dir have been ignored: ${a_path}`,
-                                );
-                            }
-                        }
-                    }
+        async watch_start() {
+            if (this._complex) {
+                await this._complex.setup_complex_tree();
+                this._complex.trees.forEach((file_tree, i) => {
+                    this.watch_tree(file_tree, i);
                 });
-            } catch (err) {
-                o.errata(1, `watch_init err: ${err}`);
-                // Fatal, configuration must be valid
-                throw new Error("src filepath or dir path not found, use fullpath or fullpaths[].");
+                if (this.debug > 7) {
+                    this._complex.trees.forEach((file_tree) => {
+                        o.accent(8, file_tree.trunks);
+                    });
+                }
+            } else {
+                await this._file_tree.setup_tree();
+                this.watch_tree(this._file_tree);
             }
         }
-        // with this = this
-        watch_hit = (path: str) => (curr: fs.Stats, prev: fs.Stats) => {
-            o.errata(10, `watch_hit: this: ${this}`);
-            // only when a file is changed ... not possible for dir watch - fs.watch
-            curr.mtime !== prev.mtime && this.trigger(path);
-        };
-        watch_triggerred(path: string) {
-            o.errata(10, `watch_triggerred: ${path}`);
-            this.trigger(path);
-        }
-        // WIP pass func for specificity
-        watches_clear() {
-            o.errata(10, `unwatch all`);
-            // for fs.watch(dir) -> later -> .close()
-            // this.watchers?.forEach((watcher) => {
-            //     watcher.close();
-            // });
-            this.full_file_paths.forEach((full_path) => {
-                // note from def: all listeners of "full_path" are removed
-                unwatchFile(full_path); // , this.watch_hit <- rather needs specific method
+
+        watch_tree(file_tree: File_Tree, n?: number) {
+            file_tree.trunks.forEach((path_arr: str[], i) => {
+                let trigger_index: Trigger;
+                // Complex
+                if (this.trigger_indices) {
+                    // TODO something more stable
+                    o.accent(1, `this.trigger_indices`);
+                    o.accent(1, this.trigger_indices);
+                    trigger_index = this.trigger_indices[n][i];
+                }
+                // not Complex
+                else if (this.simple_trigger_indices) {
+                    // TODO validate?
+                    trigger_index = this.simple_trigger_indices[i];
+                } else {
+                    // The single trigger case
+                    trigger_index = this.trigger_index; // undefined is ok?
+                }
+                path_arr.forEach((path) => {
+                    watchFile(
+                        path,
+                        { interval: this.poll },
+                        this.watch_hit(path, trigger_index),
+                    );
+                });
             });
-            // this.watchers.forEach((watcher) => {
-            //     watcher.unref();
-            // });
-            this.watchers = null;
+        }
+
+        watch_hit =
+            (path: str, trigger_index?: number) => (curr: fs.Stats, prev: fs.Stats) => {
+                o.errata(8, `watch_hit, path: ${path}`);
+                // only when a file is changed ... not possible for dir watch - fs.watch
+                o.errata(9, `watch_hit, trigger_index: ${trigger_index}`);
+                curr.mtime !== prev.mtime && this.trigger(path, trigger_index);
+            };
+
+        watches_clear = async () => {
+            if (this._complex) {
+                this._complex.trees.forEach((file_tree) => {
+                    this.unwatch_tree(file_tree);
+                });
+            } else {
+                this.unwatch_tree(this._file_tree);
+            }
+        };
+        // Some ambiguities and validation to work out yet
+        map_complex_triggers({
+            complex: complex_arr,
+            default_trigger,
+        }: {
+            complex: Array<Complex>;
+            default_trigger?: number;
+        }): Full_Trigger_Map {
+            return complex_arr.reduce((propogate: Full_Trigger_Map, complex: Complex, i) => {
+                propogate.push([]); // as in propogate[i] = []
+                let sub_map: (n: number) => Trigger;
+                if (complex.trigger_indices)
+                    sub_map = (n: number) => complex.trigger_indices[n] ?? default_trigger;
+                else sub_map = (_: number) => complex.trigger_index ?? default_trigger;
+                complex.paths.forEach((_root_path, n) => {
+                    propogate[i].push(sub_map(n));
+                });
+                return propogate;
+            }, Array<Trigger_Map>());
+        }
+
+        unwatch_tree(file_tree: File_Tree) {
+            file_tree.trunks.forEach((path_arr: str[]) => {
+                path_arr.forEach((path) => {
+                    unwatchFile(path);
+                });
+            });
         }
     }
     return new _Watch(args);
