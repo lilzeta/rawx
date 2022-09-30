@@ -1,6 +1,6 @@
 {
     "name": "rawx",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "private": false,
     "type": "module",
     "license": "kind",
@@ -31,7 +31,7 @@
     "author": "https://github.com/lilzeta",
     "devDependencies": {
         "@types/node": "^18.7.20",
-        "rawx": "file:dist/rawx-0.1.10.tgz",
+        "rawx": "0.2.3",
         "rimraf": "^3.0.2",
         "typescript": "^4.7"
     },

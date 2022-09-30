@@ -10,7 +10,7 @@ import { format } from "util";
 import { Core } from "./core.js";
 import { Arg_Map, str } from "../types/interface.js";
 import { Color_Target, Color_Targets } from "../types/interface.js";
-import { Silencer } from "index.js";
+import { Silencer } from "../types/proc_interface.js";
 
 export const some_colors = {
     TECHNICOLOR_GREEN: `[0;36m`,
