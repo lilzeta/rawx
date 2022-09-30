@@ -30,7 +30,7 @@ import { Server, some_colors } from "../dist/index.js";
             default: some_colors.LAVENDER,
             forky: some_colors.PURPLE,
             errata: some_colors.D_BLUE,
-            lightly: some_colors.NEON_YELLOW,
+            accent: some_colors.NEON_YELLOW,
             label: some_colors.NEON_YELLOW,
         },
     });

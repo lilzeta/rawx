@@ -1,6 +1,6 @@
 {
     "name": "rawx",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "private": false,
     "type": "module",
     "license": "kind",
@@ -12,8 +12,8 @@
         "pack": "cd dist && npm pack",
         "release": "npm run build && npm run _post_build && cd dist && npm pack",
         "pub": "npm run release && cd dist && npm publish",
-        "reref": "npm i --save-dev \"./dist/rawx-0.2.1.tgz\"",
-        "_reref": "npm run release && npm i -D \"./dist/rawx-0.2.1.tgz\"",
+        "reref": "npm i --save-dev \"./dist/rawx-0.2.3.tgz\"",
+        "_reref": "npm run release && npm i -D \"./dist/rawx-0.2.3.tgz\"",
         "start": "node test/meta.js"
     },
     "repository": {

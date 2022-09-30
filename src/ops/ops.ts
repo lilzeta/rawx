@@ -93,7 +93,7 @@ export const Ops: Ops_Proxy = (args?: Ops_Args) => {
         };
         // default
         _l: Log;
-        lightly: Log;
+        accent: Log;
         forky: Log;
         errata: Log;
         // set_logging_etc_c_proc: (args: Set_Proc_Logger_Args) => void;
@@ -171,7 +171,7 @@ export const Ops: Ops_Proxy = (args?: Ops_Args) => {
                     }),
                 }),
 
-                accent: this.log_lightly_industrial({
+                accent: this.log_accent_industrial({
                     colors: recolored_basis,
                     debug,
                     pre: this.prefix({
@@ -327,7 +327,7 @@ export const Ops: Ops_Proxy = (args?: Ops_Args) => {
             color_target: "forky",
         }); // kind
 
-        log_lightly_industrial: Log_Factory = this.boom({
+        log_accent_industrial: Log_Factory = this.boom({
             color_target: "accent",
         }); // kind
 

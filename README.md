@@ -22,7 +22,7 @@ the responsibility of the developer or user running kind.
 ```
 Please keep in mind that your process is your responsibility.  >.~`
   
-Version 0.2.0, hooks, refactor of everything  
+Version 0.2.3, hooks, refactor of everything  
 You may now need to enable certain things to use with a tsconfig  
 The Ops class has a new convenience closure  
 Server, Watch & Ops are all instantiated with fn calls = Server({...})  
@@ -133,7 +133,7 @@ Basically same as prev version, but wrapped in func closure/proxy/private class
 Functions as Procs is prototyped @ V0.2, expect issues.  
 Added a preliminary example with what works for my case.  
 ```
-Version 0.1.6  
+Version 0.2.3  
 27.1kB server.js
 15.4kB server_construct.js
 08.7kB watch.js - supports standalone use
@@ -647,7 +647,6 @@ Server({
 	out: "dist",
 	colors: {
 		default: some_colors.TECHNICOLOR_GREEN,
-		lightly: some_colors.LAVENDER,
 		forky: some_colors.D_BLUE,
 		errata: some_colors.NEON_YELLOW,
 		accent: some_colors.NEON_YELLOW,
