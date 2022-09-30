@@ -369,7 +369,7 @@ Probably use a lib if anyone cares to make a suggestion.
 Next config example is operating a web_app with a local_store partner server   
 // ~ ~  Concurrent Server / conjoined logging ~ ~ //  
 ```
-import path from "path";
+import { join, resolve } from "path";
 import { Server, some_colors } from "rawx";
 import dot_env_module from "dotenv";
 // .env @ the top of project
@@ -377,35 +377,34 @@ const dot_env = dot_env_module.config({ path: ".env" }).parsed;
 const { WEB_APP_PORT } = dot_env;
 
 const debug = 3;
-const web_context = path.resolve(".");
-const storage_api_context = path.resolve(web_context, "storage_api");
-let shared_files = [path.join(web_context, "shared")];
-shared_files.push(path.join(web_context, "global.d.ts"));
+const api = resolve("api");
+let shared = resolve("shared");
+const global_types = resolve("global.d.ts");
 // ~ ~ ~ express storage_server ~ ~ ~
 Server({
-    name: "storage_api_server",
+    name: "api",
     procs: [
         {
             type: "exec",
-            command: `npm run storage_clean`,
+            command: `npm run api_clean`,
             chain_exit: true, // no files don't care
             silence: "all",
             delay: 0,
         },
         {
             type: "exec",
-            command: `npm run storage_build`,
+            command: `npm run api_build`,
             chain_exit: "success", // trigger next on exit 0
             delay: 100,
         },
         {
             type: "exec",
-            command: `npm run storage_run`,
+            command: `npm run api_run`,
             delay: 3000, // a healthy wait for port
         },
     ],
     watch: {
-        paths: [storage_api_context].concat(shared_files),
+        paths: [api, shared, global_types],
         match: {
             exclude_dir: /(?:backup_data)|(?:file_store)/,
             include: ["*.tsx", "*.ts"],
@@ -424,32 +423,19 @@ Server({
     debug,
 });
 
-const web_app_root = path.join(web_context, "web_app");
+const web_root = resolve("web");
 // run the web app in production/static (at first), after clean and initial build
-let prod_web_dist = path.resolve("dist", "web_app");
+let prod_web_dist = resolve("dist", "web");
 ```
-note I have serve installed globally as per their docs  
-[npmjs npx serve](https://www.npmjs.com/package/serve)  
-not part of rawx  
+note I have serve installed globally as per their docs
+[npmjs npx serve](https://www.npmjs.com/package/serve)
+not part of rawx
 ```
-let prod_web_run = `npx serve -l ${WEB_APP_PORT} ${prod_web_dist}`;
+let prod_web_serve = `npx serve -l ${WEB_APP_PORT} ${prod_web_dist}`;
 
-const root_dir = path.resolve("/");
-const app_data_local = path.join(root_dir, "Users", "lil_z", "AppData", "Local");
-const chrome = path.join(app_data_local, "Chromium", "Application", "chrome_proxy.exe");
-// args could be in the case of puppeteer:ws browser on localhost
-const browser_args = [
-    `${chrome}`,
-    "--remote-debugging-port=9222",
-    "--user-data-dir=remote-profile",
-    "http://localhost:6318",
-];
-const open_browser_proc = {
-    type: "exec",
-    command: "start",
-    args: browser_args,
-    delay: 10000,
-};
+const root_dir = resolve("/");
+const app_data_local = join(root_dir, "Users", "lil_z", "AppData", "Local");
+const chrome = join(app_data_local, "Chromium", "Application", "chrome_proxy.exe");
 
 // ~ ~ web_server ~ ~
 // web_procs blow by blow
@@ -462,32 +448,43 @@ const open_browser_proc = {
 // web_procs[2] -> web_proc[3] removes the watches i.e. "trap": true
 // note [2] -> [3] is the only time watch of src files triggers this server
 Server({
-    name: "web_server",
+    name: "web",
     procs: [
         {
             type: "exec",
-            command: `npm run web_app_clean`,
+            command: `npm run web_clean`,
             // watch for exit -> start next proc
             chain_exit: true, // no files don't care
             silence: "all",
         },
         {
             type: "exec",
-            command: `npm run web_app_prod_build`,
+            command: `npm run web_build`,
             // iff exit 0 start next
             chain_exit: "success",
             delay: 100,
         },
         {
             type: "exec",
-            command: `${prod_web_run}`,
+            command: `${prod_web_serve}`,
             // when proc start() -> also open browser
-            concurrent: open_browser_proc,
+            concurrent: {
+                type: "spawn",
+                command: "start",
+                // args for puppeteer:ws/browser on localhost
+                args: [
+                    `${chrome}`,
+                    "--remote-debugging-port=9222",
+                    "--user-data-dir=remote-profile",
+                    "http://localhost:6318",
+                ],
+                delay: 10000,
+            },
             delay: 500,
         }, // No chain_exit here!
         {
             type: "exec",
-            command: "npm run web_app_dev_no_open",
+            command: "npm run web_dev_nopen",
             // trap => clear all watches
             trap: true,
             delay: 4000, // a healthy wait for port to clear
@@ -496,7 +493,7 @@ Server({
     // incase of error on 0/1/2, next watch triggers 3 & trap
     trigger_index: 3,
     watch: {
-        paths: [web_app_root].concat(shared_files),
+        paths: [web_root, shared, global_types],
         // 30s is sleepy. Only once then webpack handles
         poll: 30000,
         colors: {
@@ -507,7 +504,7 @@ Server({
         },
         // debug: 10,
     },
-    debug,
+    debug: 3,
     colors: {
         default: some_colors.D_BLUE,
         forky: some_colors.PURPLE,
