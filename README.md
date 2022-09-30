@@ -674,7 +674,7 @@ Determine a proper test library, Jest? Its a passion proj...
   
 ### Lower priority, possibly never
 Document Watch class, (use it directly, why?)  
-Read mote of the node child-process codebase  
+Read more of the node child-process codebase  
 uuid, research why exactly is Math.random bad? (see crypto?)  
   
 // ~ ~  
@@ -817,8 +817,8 @@ to terminate the sub-procs things like npm spawn
 ## repo as dev
 After removing tsc-esm it was necessary to put tsc on path  
   
-`npm run build && npm run manual_post_build`  
-prebuild: clean & build & npm copy in prepack
+`npm run build && npm run _post_build`  
+prebuild: clean & build & npm copy in prepack files
   
 `npm run release`  
 ^build^ & pack  
