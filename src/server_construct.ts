@@ -280,10 +280,11 @@ export abstract class Server_Construct {
     };
     Proc_Arg_As_A_Proc(proc_arg: A_Proc_Arg, label: str): _Proc {
         let chain_exit; // jiggler
+        let _conc = proc_arg.concurrent && this.no_circular_tree_map(proc_arg.concurrent);
         let as_internal_proc = Object.assign(proc_arg, {
             proc_id: __id(),
-            ...(proc_arg.concurrent && {
-                concurrent: this.no_circular_tree_map(proc_arg.concurrent),
+            ...(_conc && {
+                _conc,
             }),
             sidecar: {
                 ...((label.length && {

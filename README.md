@@ -482,7 +482,7 @@ Server({
             type: "exec",
             command: `${prod_web_run}`,
             // when proc start() -> also open browser
-            concurrently: open_browser_proc,
+            concurrent: open_browser_proc,
             delay: 500,
         }, // No chain_exit here!
         {

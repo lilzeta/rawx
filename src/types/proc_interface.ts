@@ -64,8 +64,9 @@ export type Proc_Args = Array<A_Proc_Arg> | A_Proc_Arg;
 export interface _Proc extends Core_Proc {
     // the internal JSON sent to run_proc every time
     // construct: _Proc_Def | _Proc_Exec | _Proc_Fork;
+    // internal version of Proc.concurrent
+    _conc: _Proc;
     proc_id: str; // uuid/hash
-    concurrently?: _Proc; // not currently supporting concurrent hooks
     // few bits for the wrappers
     sidecar: _Sidecar_Opts;
 }
@@ -131,11 +132,8 @@ export interface _Proc_Fork extends _Proc {
 
 // Proc_Fn/Hooks below
 // WIP
-export interface _Hook_Fn extends Core_Proc {
-    proc_id: str; // uuid/hash
-    fn: Function;
-    concurrently?: _Proc; // not currently supporting concurrent hooks
-    sidecar: _Sidecar_Opts;
+export interface _Hook_Fn extends _Proc {
+    fn: Fn_W_Callback | Exec_Hook_Args;
 }
 // export type _A_Proc = _Proc | _Hook_Fn;
 

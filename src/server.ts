@@ -70,10 +70,10 @@ export const Server: Server = (args: Server_Args) => {
             proc.trap && this.trap(chain_id); // syncronously
             // ignoring result, can throw
             this.prepare_run({ proc, chain_id, sub_proc, trigger_file_path });
-            if (proc.concurrently) {
-                const conc_proc = proc.concurrently;
+            if (proc._conc) {
+                // const conc_proc = proc.concurrent;
                 // ignoring result, can throw
-                this.concurrently(conc_proc, chain_id).catch();
+                this.concurrently(proc._conc, chain_id).catch();
             }
         };
 
@@ -474,8 +474,8 @@ export const Server: Server = (args: Server_Args) => {
                 proc.trap && this.trap(chain_id); // syncronously
 
                 this.run_node_proc(proc.construct, proc.sidecar, true);
-                if (proc.concurrently) {
-                    await this.concurrently(proc.concurrently, chain_id);
+                if (proc._conc) {
+                    await this.concurrently(proc._conc, chain_id);
                 }
             }
         }
