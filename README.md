@@ -7,9 +7,10 @@ These all have configs that are deeply explicated by instantiating json.
   
 Would like to work on log alignment but adding a lot may disrupt  
 easy transfer, delicate. for now output looks like:  
-![Alt text](/docs/screen1.png "rawx-out")  
+  
+![Alt text](https://github.com/lilzeta/rawx/tree/main/docs/screen1.png "rawx-out")  
 need to add line break configs still (WIP)  
-![Alt text](/docs/screen2.png "rawx-out2")  
+![Alt text](https://github.com/lilzeta/rawx/tree/main/docs/screen2.png "rawx-out2")  
   
 License is entirely open, lets enable each-other in this way.  
 Developers should not feel bad about the copy paste.  
