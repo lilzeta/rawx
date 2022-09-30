@@ -64,6 +64,16 @@ const dist_index = path.join(dist, "index.js");
                 {
                     type: "exec",
                     command: "node ./test/simple.js",
+                    // concurrent: {
+                    //     type: "spawn",
+                    //     command: "start",
+                    //     args: [
+                    //         "C:\\Users\\lil_z\\AppData\\Local\\Chromium\\Application\\chrome_proxy.exe",
+                    //         "--remote-debugging-port=9222",
+                    //         "--user-data-dir=remote-profile",
+                    //         "http://localhost:6318",
+                    //     ],
+                    // },
                 },
             ],
             trigger_indices: [3, 0],

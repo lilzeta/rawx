@@ -248,7 +248,7 @@ export abstract class Server_Construct {
     };
     // I like turtles
     no_circular_tree_map = (proc: A_Proc_Arg | _Proc): _Proc | _Hook_Fn | undefined => {
-        // because A_Proc_Arg.concurrently could be in tree as _A_Proc already
+        // because A_Proc_Arg.concurrent could be in tree as _A_Proc already
         if ((proc as _Proc).proc_id) return undefined;
         // since no proc_id, proc is a A_Proc_Arg (not circular)
         proc = proc as A_Proc_Arg;
@@ -280,7 +280,13 @@ export abstract class Server_Construct {
     };
     Proc_Arg_As_A_Proc(proc_arg: A_Proc_Arg, label: str): _Proc {
         let chain_exit; // jiggler
-        let _conc = proc_arg.concurrent && this.no_circular_tree_map(proc_arg.concurrent);
+        let _conc;
+        if (proc_arg.concurrent) {
+            _conc = this.no_circular_tree_map(proc_arg.concurrent);
+            // just for cleaner logging of _Proc
+            delete proc_arg.concurrent;
+        }
+        o.accent(11, `_conc in_tree? : ${_conc}`);
         let as_internal_proc = Object.assign(proc_arg, {
             proc_id: __id(),
             ...(_conc && {
@@ -333,7 +339,9 @@ export abstract class Server_Construct {
         this.step_procs = [...this.range_cache];
     }
     is_fn_proc(proc: A_Proc_Arg | _Proc) {
-        return proc.type === "exec_fn" || proc.type === "fn";
+        o.accent(8, `is_fn_proc?: ${proc}:`);
+        o.accent(8, proc.type === "exec_fn" || proc.type === "fn");
+        return proc.type === "exec_fn" || proc.type === "fn" || false;
     }
     is_repeater_proc(proc: _Proc_W_Conf) {
         return (

@@ -467,13 +467,16 @@ export const Server: Server = (args: Server_Args) => {
         // Not sure if what mixture of clever and dumb this may get us into, when trued
         // TODO concurrently with hooks, needs some rumination
         async concurrently(proc_: _Proc, chain_id: str) {
-            if (!this.is_fn_proc) {
+            if (!this.is_fn_proc(proc_)) {
                 const proc = proc_ as _Proc_W_Conf;
                 if (proc.delay) await o.wait(proc.delay);
                 if (this.tubed !== chain_id) return;
                 proc.trap && this.trap(chain_id); // syncronously
 
+                // note this is not the proc with _conc, but _conc itself
+                o.accent(8, `Starting _conc proc: ${proc.sidecar.label}`);
                 this.run_node_proc(proc.construct, proc.sidecar, true);
+                // this is yet another _conc
                 if (proc._conc) {
                     await this.concurrently(proc._conc, chain_id);
                 }
