@@ -72,12 +72,17 @@ export interface _Proc extends Core_Proc {
 export interface _Run_Proc_Conf {
     type: "spawn" | "execFile";
     command: str;
-    args: readonly str[];
+    args: readonly str[] | Repeater_Args_Arr;
+    // where `true` just means no warning of no arg on failure
+    repeater_chain?: true | "success";
     options?: {
         cwd?: str;
         shell?: true;
     };
 }
+export type Args = readonly str[];
+export type Repeater_Args_Arr = Array<Args>;
+
 export type _Proc_W_Conf = _Proc_Def | _Proc_Exec | _Proc_Fork;
 export interface _Proc_Def extends _Proc {
     type: "spawn" | "execFile";

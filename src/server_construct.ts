@@ -13,12 +13,18 @@ import { Server_Args, Flux_Param, Color_Targets } from "./types/interface.js";
 import { Server_Watch_Arg, Pre_Init_Procs_Arg } from "./types/interface.js";
 import { str, Debug } from "./types/interface.js";
 // external
-import { Proc_Arg_Exec, Proc_Arg_Def, A_Proc_Arg } from "./types/proc_interface.js";
+import {
+    Proc_Arg_Exec,
+    Proc_Arg_Def,
+    A_Proc_Arg,
+    _Proc_W_Conf,
+} from "./types/proc_interface.js";
 import { Proc_Arg_Fork, Hook_Arg } from "./types/proc_interface.js";
 // internal
 import { _Proc_Fork, _Proc_Exec, _Proc_Def } from "./types/proc_interface.js";
 import { _Run_Proc_Conf, _Proc, _Hook_Fn } from "./types/proc_interface.js";
 import { Ops_Gen, Ops } from "./ops/ops.js";
+import { Sub_Proc } from "./sub_proc.js";
 
 // set in constructor
 let o: Ops;
@@ -29,6 +35,9 @@ export const number_mins: Record<str, number> = {
     exit_delay: 50,
     pulse: 400,
 };
+
+const Truncate_Label = 100;
+// const Truncate_Label = 60;
 
 // Core is logging and utilities
 export abstract class Server_Construct {
@@ -48,6 +57,8 @@ export abstract class Server_Construct {
     watch: Watch_Abstract;
     watch_args: Server_Watch_Arg;
     colors: Color_Targets;
+
+    sub_proc: Sub_Proc;
 
     // These are aliased into Watch for now
     trigger_index?: number;
@@ -89,6 +100,8 @@ export abstract class Server_Construct {
         let { procs, proc } = opts;
         this.watch_args = watch;
         this.colors = colors;
+
+        this.sub_proc = new Sub_Proc({ inherit_ops: o });
 
         this.setup_procs({ procs, proc });
         if (watch) {
@@ -213,7 +226,7 @@ export abstract class Server_Construct {
         if (this.is_fn_proc(proc)) {
             let fn_proc = proc as Hook_Arg;
             label = o.pretty(fn_proc.fn);
-            label = o.truncate(label, 25);
+            label = o.truncate(label, Truncate_Label);
             // shouldn't get a warn if type-safe? - fatal
             if (!fn_proc.fn) {
                 const err = `Server [142] - fn missing from fn proc, Fatal. proc: ${o.pretty(
@@ -249,16 +262,17 @@ export abstract class Server_Construct {
             if (proc.type === "exec") {
                 if ((proc as any).args)
                     throw new Error(`proc.args are not allowed with {type: exec}`);
-                label = o.truncate(`[${proc.type}] - ${proc.command}] `, 35);
+                label = o.truncate(`[${proc.type}] - ${proc.command}] `, Truncate_Label);
             } else if (proc.type === "fork") {
                 let _proc: Proc_Arg_Fork = proc as Proc_Arg_Fork;
                 // TODO
-                label = o.truncate(`[${_proc.type}](${_proc.module}] `, 35);
+                label = o.truncate(`[${_proc.type}](${_proc.module}] `, Truncate_Label);
             } else {
                 let _proc: Proc_Arg_Def = proc as Proc_Arg_Def;
+                let args_s = Array.isArray(_proc.args) ? _proc.args?.join(", ") : _proc.args;
                 label = o.truncate(
-                    `[${_proc.type}](${_proc.command} args:[${_proc.args?.join(" ")}] `,
-                    30,
+                    `[${_proc.type}](${_proc.command} args:[${args_s}]`,
+                    Truncate_Label,
                 );
             }
         }
@@ -319,6 +333,12 @@ export abstract class Server_Construct {
     }
     is_fn_proc(proc: A_Proc_Arg | _Proc) {
         return proc.type === "exec_fn" || proc.type === "fn";
+    }
+    is_repeater_proc(proc: _Proc_W_Conf) {
+        return (
+            (proc.type === "spawn" || proc.type === "execFile") &&
+            Array.isArray((proc as unknown as _Proc_Def).construct.args?.[0])
+        );
     }
     // TODO this is hacky, needs not unsafe setters
     set_self(arg_name: keyof Server_Construct, value: any) {
@@ -388,7 +408,9 @@ export abstract class Server_Construct {
         let { args } = opts;
         if (o.defi(args)) {
             if (!Array.isArray(args)) {
-                throw new Error(`proc.args is not an array`);
+                if (typeof args !== "string")
+                    throw new Error(`proc.args is not an array, or string`);
+                args = [args];
             }
         } else {
             args = [];

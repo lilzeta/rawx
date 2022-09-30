@@ -10,6 +10,7 @@ import { format } from "util";
 import { Core } from "./core.js";
 import { Arg_Map, str } from "../types/interface.js";
 import { Color_Target, Color_Targets } from "../types/interface.js";
+import { Silencer } from "index.js";
 
 export const some_colors = {
     TECHNICOLOR_GREEN: `[0;36m`,
@@ -30,6 +31,7 @@ export interface Ops {
     accent: Log;
     forky: Log;
     errata: Log;
+    basic_proc_stdio: (proc: ChildProcess, silence?: Silencer) => void;
     // The following 4 may move out of this
     prefix: LabelWrap; // subproc ops...
     post: PostWrap;
@@ -199,6 +201,7 @@ export const Ops: Ops_Proxy = (args?: Ops_Args) => {
                         main_color: recolored_basis["errata"],
                     }),
                 }),
+                basic_proc_stdio: this.export_basic_proc_stdio,
                 prefix: this.prefix,
                 stdout: this.stdout,
                 post: this.post,
@@ -333,10 +336,12 @@ export const Ops: Ops_Proxy = (args?: Ops_Args) => {
         }); // kind
 
         // in case anyone wants a subproc output like inherited
-        public export_basic_proc_stdio(proc: ChildProcess) {
-            proc.stdout.on("data", (data) => {
-                process.stdout._write(data, "utf8", () => {});
-            });
+        public export_basic_proc_stdio(proc: ChildProcess, silence?: Silencer) {
+            if (silence === "all") return;
+            if (!silence)
+                proc.stdout.on("data", (data) => {
+                    process.stdout._write(data, "utf8", () => {});
+                });
             proc.stderr.on("data", (data) => {
                 process.stderr._write(data, "utf8", () => {});
             });

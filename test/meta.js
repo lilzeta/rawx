@@ -57,7 +57,7 @@ const dist_index = path.join(dist, "index.js");
                 {
                     type: "exec",
                     command: "npm run pack",
-                    run_if_file_dne: "./dist/dist/rawx-0.2.0.tgz",
+                    run_if_file_dne: "./dist/dist/rawx-0.2.1.tgz",
                     goto_on_file_exists: 3,
                     chain_exit: "success",
                 },

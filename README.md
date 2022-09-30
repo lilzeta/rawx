@@ -5,6 +5,12 @@ Watch class is a file watch that triggers on file changes (or saves)
 Ops is a class that conjoins a single node.js files' logs and configs  
 These all have configs that are deeply explicated by instantiating json.  
   
+Would like to work on log alignment but adding a lot may disrupt  
+easy transfer, delicate. for now output looks like:  
+![Alt text](/docs/screen1.png "rawx-out")  
+need to add line break configs still (WIP)  
+![Alt text](/docs/screen2.png "rawx-out2")  
+  
 License is entirely open, lets enable each-other in this way.  
 Developers should not feel bad about the copy paste.  
 Added this notice to the license to protect me, a freeware dev.  
@@ -22,6 +28,9 @@ Server, Watch & Ops are all instantiated with fn calls = Server({...})
 Core is all now part of Ops and Server, Watch don't have superclass  
 Except Server_Construct, an abstract class that is handling validation  
 Switched to normal tsc for the compiler, way better typedefs now.  
+For now `"type": "module",` in package.json is required.  
+Focus is on stability of the es6 module currently.  
+A PR for the cjs build is definitely welcome.  
   
 Will try to get it tested on OSX & Linux soon  
 Since I use Bash, I would guess it works on Linux also  
@@ -34,42 +43,81 @@ Use match: {...} now for all include/include_dir/exclude/exclude_dir
 Not supporting previous schema from 0.2, or publishing any new 0.1.x  
 All examples are up to date and running, hopefully less narrow now.  
   
-Here is the simple case that is a common nodemon process  
+Added command repeaters here shown in/new first example following.  
+```
+    type: "spawn",
+    command: "cp",
+    args: [
+        [`"${join(src_styles, "zsa.scss")}"`, `"${tar_styles}"`],
+        [`"${join(dist_styles, "zsa.css")}"`, `"${tar_styles}"`],
+        [`"${join(dist_styles, "zsa.css.map")}"`, `"${tar_styles}"`],
+    ],
+    // stop if error because it failed
+    repeater_chain: "success",
+```
+  
+Here is the simple case, stages external sources to local for publication  
+I just made the repo that uses this and it is published here:  
+[github/lilzeta/zen](https://github.com/lilzeta/zen)  
 `npm i -D rawx`  
 Run with command  
-`node start_tube.js`  
-or use `scripts: {"start": "node start_tube.js"}`  
+`node stage_zen.js`  
+or use `scripts: {"start": "node stage_zen.js"}`  
+`npm start` 
   
-start_tube.js  
+stage_zen.js  
 ```
-// in start_tube.js
-import path from "path";
-import { Server, some_colors } from "rawx";
+import { join, resolve } from "path";
+import { Server, some_colors, Ops } from "rawx";
 
-const src = path.resolve("src");
-const pkg = path.resolve("Cargo.toml");
+const base = resolve(".");
+const tar_base = resolve("src");
+const tar_styles = join(tar_base, "styles");
+const root = resolve("../..");
+const base_ops = join(root, "o");
+const base_pup = join(base_ops, "pup");
+const src_styles = join(base_pup, "src", "pups", "styles");
+const dist_styles = join(base_pup, "dist", "styles");
 
-// No `new` class keyword now! `Server` is a function  
+const debug = 4;
+const o = Ops({ default: some_colors.TECHNICOLOR_GREEN, debug });
+o._l(1, `pup_dist: ${dist_styles}`);
+
 Server({
-    name: "start_tube",
-    procs: [
-        {
-            type: "exec",
-            command: "cargo",
-            args: ["run", "tube"],
-        },
-    ],
-    // takes files & directories watches files within directories
-    watch: {
-        paths: [src, pkg],
-    },
-    colors: {
-        // any subproc through-put without a color
-        default: some_colors.TECHNICOLOR_GREEN,
-        // spawns, kill and close
-        forky: some_colors.D_BLUE
-    },
-    debug: 3, // 2 or 3 is good if you want start/stop log lines
+	name: "stage_zen",
+	procs: [
+		{
+			type: "spawn",
+			command: "rm",
+			args: ["-rf", `"${tar_base}"`],
+			chain_exit: true,
+			shell: true,
+            // prob unnecessary, be careful!
+			cwd: base,
+		},
+		{
+			type: "spawn",
+			command: "mkdir",
+			args: `"${tar_styles}"`,
+			chain_exit: "success",
+			silence: true,
+		},
+		{
+			type: "spawn",
+			command: "cp",
+			args: [
+				[`"${join(src_styles, "zsa.scss")}"`, `"${tar_styles}"`],
+				[`"${join(dist_styles, "zsa.css")}"`, `"${tar_styles}"`],
+				[`"${join(dist_styles, "zsa.css.map")}"`, `"${tar_styles}"`],
+			],
+			// stop if error because it failed
+			repeater_chain: "success",
+		},
+	],
+	debug,
+	kill_delay: 400, // ssd/nvme fs speed
+});
+    debug, // 2 - 4 is good if you want start/close log lines
 });  
 ```
 This is a general node daemon, works for exec cargo, npm or general commands on path  
@@ -85,13 +133,14 @@ Functions as Procs is prototyped @ V0.2, expect issues.
 Added a preliminary example with what works for my case.  
 ```
 Version 0.1.6  
-27.6kB server.js
-14.7kB server_construct.js
-08.1kB watch.js  
-09.6kB file_tree
-02.0kB tree_complex
-15.6kB ops.js <- log config factories & core/util fn exports
-04.2kB core.js  
+27.1kB server.js
+15.4kB server_construct.js
+08.7kB watch.js - supports standalone use
+09.7kB file_tree - will probably host in a new npm module
+02.0kB tree_complex - will go with file_tree
+15.7kB ops.js <- log config factories & core/util fn exports
+04.2kB core.js <- packaged into ops now
+03.3kB sub_proc.js - started this class to cleanup/support Server   
 ```
 The module in your node_modules is kept unminified, no obtuse scaffolds  
 Source is easily read/edited ES6 even as an npm install, literally is src   
@@ -99,6 +148,8 @@ If you are looking for a prod server this isn't it chief .dev
 Lean pretty hard on the throws, it's important to prevent bad args/setup  
 See typedefs if something seems to not work proper, lots of recent charges  
 make sure opts are up to date, Readme maybe not entirely accurate all the time  
+Highly reccomend using a util class wrapped like ops.js  
+It is a good shape to use as a starter for the pattern for your own.  
   
 // ~ ~  Important gotches  
 Note for bash or windows users  
@@ -691,7 +742,6 @@ if (!Array.isArray(target)) {
         exit;
     }
 }
-o.accent(1, "test");
 
 const dir = join(target[0], this_rawx);
 let node_js_target = `start_${this_rawx}`;
@@ -702,8 +752,6 @@ if (target.length > 1) {
 }
 const target_pkg_conf = join(dir, "package.json");
 const nodejs_fullpath = join(dir, node_js_target);
-let procs = [];
-o.accent(3, JSON.stringify(procs, null, 2));
 Server({
     name: "",
     procs: [

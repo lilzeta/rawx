@@ -11,11 +11,11 @@ import t_kill from "tree-kill";
 import { v4 as __id } from "uuid";
 // from self
 import { Server_Args, Exec_Light, str, Num_Keyed } from "./types/interface.js";
-import { Silencer, Fn_W_Callback, Exec_Hook_Args } from "./types/proc_interface.js";
+import { Fn_W_Callback, Exec_Hook_Args, Args } from "./types/proc_interface.js";
 import { _Hook_Fn, _Proc } from "./types/proc_interface.js";
 import { _Run_Proc_Conf, _Run_Exec_Conf, _Run_Fork_Conf } from "./types/proc_interface.js";
 import { _Proc_Def, _Proc_Exec, _Proc_Fork, _Proc_W_Conf } from "./types/proc_interface.js";
-import { Ops, simple_clean, IO } from "./ops/ops.js";
+import { Ops } from "./ops/ops.js";
 import { Server_Construct } from "./server_construct.js";
 
 export type Server = (args: Server_Args) => Server_Construct;
@@ -177,7 +177,7 @@ export const Server: Server = (args: Server_Args) => {
                     if ((cool as ChildProcess).pid) {
                         cool = cool as ChildProcess;
                         this.running.push(cool);
-                        this._setup_subproc({
+                        this.sub_proc._setup_subproc({
                             sub_proc: cool,
                             label: sidecar.label,
                             silence: sidecar.silence,
@@ -253,9 +253,71 @@ export const Server: Server = (args: Server_Args) => {
                 return;
             } else {
                 const proc_ = proc as _Proc_W_Conf;
+                if (this.is_repeater_proc(proc_)) {
+                    return this.run_repeater_proc(
+                        proc_.construct as _Run_Proc_Conf,
+                        proc_.sidecar,
+                        sub_proc,
+                    );
+                }
                 return this.run_node_proc(proc_.construct, proc_.sidecar, sub_proc);
             }
         };
+
+        run_repeater_proc(
+            p_args: _Run_Proc_Conf,
+            _sidecar: _Proc["sidecar"],
+            _subproc?: true,
+        ): Promise<number> {
+            return new Promise<number>(async (res) => {
+                const { type, command, options } = p_args;
+                let sub_args = p_args.args;
+                const juke_d: number = _sidecar.silence === "all" ? 999 : 8;
+                const rep_args: Array<Args> = p_args.args as Array<Args>;
+                let repeater_chain = p_args.repeater_chain;
+                const subproc = (args: ReadonlyArray<string>) => {
+                    if (type === "execFile") {
+                        o._l(
+                            juke_d,
+                            `execFile ${command} ${o.pretty(sub_args)} ${o.pretty(options)}`,
+                        );
+                        return execFile(p_args.command, args, options);
+                    }
+                    if (type === "spawn") {
+                        const p_a: _Run_Proc_Conf = p_args as _Run_Proc_Conf;
+                        o._l(
+                            juke_d,
+                            `spawn ${command} ${o.pretty(sub_args)} ${o.pretty(p_a.options)}`,
+                        );
+                        return spawn(command, args, p_a.options);
+                    }
+                };
+
+                const repeater = async (i = 0): Promise<number> => {
+                    if (i >= sub_args.length) {
+                        return 0;
+                    }
+                    const c_proc = subproc(rep_args[i]);
+                    o.basic_proc_stdio(c_proc, _sidecar.silence);
+                    c_proc.on("exit", async (code) => {
+                        if (code) {
+                            if (repeater_chain === "success") {
+                                o.errata(1, `repeater chain exitted w/err: ${code}, halting.`);
+                            } else {
+                                o.errata(
+                                    1,
+                                    `repeater chain exitted w/err: ${code}, w/no repeater_chain: "success" =>`,
+                                );
+                                return await repeater(i + 1);
+                            }
+                        } else {
+                            return await repeater(i + 1);
+                        }
+                    });
+                };
+                res(await repeater());
+            });
+        }
 
         // lets keep this syncronous
         run_node_proc = (
@@ -272,23 +334,28 @@ export const Server: Server = (args: Server_Args) => {
                 o.accent(9, p_args.command);
                 return exec(p_args.command);
             }
-            const sub_args: ReadonlyArray<string> = p_args.args;
+            let sub_args = p_args.args;
             if (type === "fork") {
+                const fork_args: ReadonlyArray<string> = sub_args as ReadonlyArray<string>;
                 p_args = p_args as _Run_Fork_Conf;
                 const { module, options } = p_args;
-                return fork(module, sub_args, options);
+                return fork(module, fork_args, options);
             }
             p_args = p_args as _Run_Proc_Conf;
             const { command, options } = p_args;
-
-            if (type === "execFile") {
-                o._l(8, `execFile ${command} ${o.pretty(sub_args)} ${o.pretty(options)}`);
-                return execFile(p_args.command, sub_args, options);
-            }
-            if (type === "spawn") {
-                const p_a: _Run_Proc_Conf = p_args as _Run_Proc_Conf;
-                o._l(8, `spawn ${command} ${o.pretty(sub_args)} ${o.pretty(p_a.options)}`);
-                return spawn(command, sub_args, p_a.options);
+            // TODO put in new function?
+            if (sub_args?.[0] && Array.isArray(sub_args[0])) {
+            } else {
+                sub_args = p_args.args as ReadonlyArray<string>;
+                if (type === "execFile") {
+                    o._l(8, `execFile ${command} ${o.pretty(sub_args)} ${o.pretty(options)}`);
+                    return execFile(p_args.command, sub_args, options);
+                }
+                if (type === "spawn") {
+                    const p_a: _Run_Proc_Conf = p_args as _Run_Proc_Conf;
+                    o._l(8, `spawn ${command} ${o.pretty(sub_args)} ${o.pretty(p_a.options)}`);
+                    return spawn(command, sub_args, p_a.options);
+                }
             }
         };
 
@@ -338,7 +405,7 @@ export const Server: Server = (args: Server_Args) => {
                     callback: ({ command }: Exec_Light) => {
                         const label = `Light exec callback - ${command}`;
                         const new_child_process = exec(command);
-                        this._setup_subproc({
+                        this.sub_proc._setup_subproc({
                             sub_proc: new_child_process,
                             label,
                             silence: proc.silence,
@@ -471,61 +538,6 @@ export const Server: Server = (args: Server_Args) => {
             return Promise.all(inner_promises);
         };
 
-        // There isn't an elegant module for this, it's half Ops/half proc runtime
-        // Used after each subproc starts, may move this to another class
-        _setup_subproc = ({ sub_proc, silence, on_close }: Setup_Sub_Proc_Args) => {
-            let jiggler;
-            const colors = o.colors;
-            // No <-> deco on normal stdout/stderr - color passthrough
-            if (!silence) {
-                let sub_passthrough: IO;
-                // no label for proc std_out
-                if (o.colors.default?.length) sub_passthrough = () => o.stdout(colors.default);
-                let post = o.post({ is_defi_IO: sub_passthrough });
-                sub_proc.stdout.on("data", (data) => {
-                    if ((jiggler = simple_clean(data)).length) {
-                        sub_passthrough?.();
-                        o.stdout(jiggler);
-                        post?.();
-                    }
-                });
-            }
-
-            if (silence !== "all" && o.debug) {
-                let err_sub_passthrough: IO;
-                // no label for proc std_out
-                if (colors.errata?.length) err_sub_passthrough = () => o.stdout(colors.errata);
-                let err_post = o.post({ is_defi_IO: err_sub_passthrough });
-                sub_proc.stderr.on("data", (data) => {
-                    if ((jiggler = simple_clean(data)).length) {
-                        err_sub_passthrough?.();
-                        console.log(jiggler);
-                        err_post?.();
-                    }
-                });
-                // WIP - TODO forgot what the issue here was
-                let forky_sub_passthrough: IO;
-                // no label for proc std_out
-                if (colors.forky?.length)
-                    forky_sub_passthrough = o.prefix({
-                        label: o.label,
-                        color: colors["label"],
-                        fleck: colors["fleck"],
-                        main_color: colors["forky"],
-                    });
-                let forky_post = o.post({ is_defi_IO: forky_sub_passthrough });
-                sub_proc.on("close", (code) => {
-                    // With named label
-                    if (o.debug) {
-                        forky_sub_passthrough?.();
-                        o.forky(2, `</child-process> \\\\_ closed w/code: ${code}`);
-                        forky_post?.();
-                    }
-                    on_close(sub_proc.pid);
-                });
-            }
-        }; // kind
-
         // terminate server, sync
         die() {
             o.forky(6, `Server.die() called, terminating any running`);
@@ -583,12 +595,7 @@ interface _Prepare_Args {
     trigger_file_path?: str;
     sub_proc?: true;
 }
-interface Setup_Sub_Proc_Args {
-    sub_proc: ChildProcess;
-    label: str;
-    silence?: Silencer;
-    on_close: (pid: number) => void;
-}
+
 // interface _Fn_Proc_Args {
 //     type: Proc_Fn_Type;
 //     command: str;
