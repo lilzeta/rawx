@@ -1,3 +1,5 @@
+"typeRoots": ["../node_modules/@types"],
+
 ## Rawx - Server Daemon
 Typed & opinionated node.js module for running child-processes & hooks  
 Server class is a process management class instantiated using JSON  
@@ -5,8 +7,9 @@ Watch class is a file watch that triggers on file changes (or saves)
 Ops is a class that conjoins a single node.js files' logs and configs  
 These all have configs that are deeply explicated by instantiating json.  
   
-Would like to work on log alignment but adding a lot may disrupt  
-easy transfer, delicate. for now output looks like:  
+The suggested route for cjs/esm hybrid is use cjs with a small esm shim, this is working in the temp branch, also new fully typed definition file, (@types soonish). This module doesn't work in the browser if that wasn't obvious, not having an easy time with the types but when they are sorted, should be able to conditionally require node allowing for an Ops with %c console logs. Switching to require for cjs was not fun.  
+  
+Would like to work on log alignment, for now output looks like:  
   
 ![Alt text](https://github.com/lilzeta/rawx/blob/main/docs/screen1.PNG "rawx-out")  
 need to add line break configs still (WIP)  
