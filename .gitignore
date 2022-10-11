@@ -1,6 +1,9 @@
-# dist & pack
+# dist, pack, cleanup & locals
 dist/
+node_modules/
 clean/
+u/
+rawx-*.tgz
 
 # # # # # # # # # # # # # # # # # # # #
 package-lock.json*
@@ -10,11 +13,5 @@ package-lock.json*
 # testing
 # /coverage # no puppets today
 
-# logs, build & etc
-/node_modules
 *.log*
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 .DS_Store*
-u/

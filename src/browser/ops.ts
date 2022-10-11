@@ -3,85 +3,35 @@
  * Original: https://github.com/lilzeta
  * Flux this tag if/whenever you feel like
  */
-// module.exports = O_Generator;
-
-// the TLDR, ops is logging operations + util consolidation
-// Where import { Ops } from "rawx"
-// calling `new Ops(conf)` returns a rebased collection of methods aka an `O`
-// where utilized conf is rebased to { ...the_first_conf, ...this_conf }
-
-// External
-const format_ = require("node:util").format;
-// Internal
-import { Base_C, Base_I } from "../util/base";
-const Base: Base_C = require("../util/base");
+// External modules
+const format_ = require("util").format;
+// Internal modules
 import { Some_Colors } from "./some_colors";
+const Base: Base_C = require("../util/base");
 const some_colors: Some_Colors = require("./some_colors");
-import { str, Abstract_Constructor } from "../util";
+// Internal Types
+import { Base_C, Base_I } from "../util";
+import { Abstract_Constructor } from "../util";
+import { Conf, Color_Targets, Log } from "../ops/index";
 
-// \033 in hex
-const ESCAPE = "\x1B";
-// AKA the `SET no color` escape code, in utf8
-const NO: string = ESCAPE + "[0m";
-const default_colors: Escaped_Color_Targets = {
-    label: ESCAPE + some_colors.LAVENDER,
-    default: ESCAPE + some_colors.TECHNICOLOR_GREEN,
-    forky: ESCAPE + some_colors.PURPLE,
-    accent: ESCAPE + some_colors.D_BLUE, // TODO oops darkly
-    errata: ESCAPE + some_colors.H_RED,
-    // fleck: ESCAPE + some_colors.D_BLUE,
-    fleck: ESCAPE + some_colors.LAVENDER,
-};
-
-// Now our exported types
-export interface Color_Targets {
-    // Class name color
-    label: str; // "" for no labeling
-    // All sub-proc labelling
-    default: str;
-    // Accented for attention
-    accent: str;
-    // Start/Close/Proc specific event
-    forky: str;
-    errata: str;
-    // The `-` between label & log
-    fleck: str; // "" for no fleck
-}
-export type Color_Target = keyof Color_Targets;
-export type Log = (min_level: number, ...args: [any]) => void;
-
-// This is the result of an new Ops({...}) call, it is not a class but 'object'
+// The examples demonstrate `const o = Ops({...});` provides usage of Ops_I as o
 export interface O extends Base_I {
-    // 0-10 , 11...
     debug: number;
     colors: Color_Targets;
     log: Log;
     accent: Log;
     forky: Log;
     errata: Log;
-    // wait is a simple polyfill for both browser/node
-    // same outcome as importing node:timers/setTimeout
-    wait: Wait;
-    // Uses a closure to track global stdout newlines etc and cleanup output
-    simple_clean: (s: str) => str;
+    keys: typeof Object.keys;
+    simple_clean(s: str): str;
 }
-export interface Conf {
-    // 0-10 , 11...
-    debug?: number;
-    colors?: Partial<Color_Targets>;
-    label?: str;
-    log_ignore_reg_repl?: { reg: RegExp; replace?: string }[];
-    unique?: true;
-}
-// node:timers/setTimeout...now a simple polyfill for the browser
-export type Wait = (n: number) => Promise<void>;
 
-// Virtually a class (?correct title?), class operates as a class cache with a conf basis override
-// Notice new(...) => Ops; returns the above collection of methods when new Ops(conf)
+// Ops_Gen only virtually a class (?correct title?),
+// class operates with a instance gen cache and a conf cache
+// Notice new(...) => Ops; returns the above collection of methods `O` to/into new Ops(conf) calls
 export type Ops_Gen = new (conf?: Conf) => O;
 export type Ops_Facade = Abstract_Constructor<Conf | undefined, O>;
-
-const O_Generator: Ops_Gen = (() => {
+const Ops: Ops_Facade = (() => {
     // There is only 1 of these closures globally
     // stores a singleton instance of _Ops_Gen_Inner
     let ops_gen_cached: _Ops_Gen_Inner;
@@ -89,6 +39,8 @@ const O_Generator: Ops_Gen = (() => {
     // ops_cache is instanced by the first `new Ops()`
     let ops_cache: O;
 
+    // Notice, after a whole lot of class code this function
+    // => returns ops_gen which is afterwards exported as the default module
     // Some singleton variables for simple_clean which cleans output
     // Where each output call is a buffer chunk of STD_OUT
     let global_nope_next_nl: boolean = false;
@@ -109,13 +61,19 @@ const O_Generator: Ops_Gen = (() => {
         trim_ws_after_newline: /\n[\s\t]*/,
     };
 
-    // Instantiated once/only-first new Ops(...) call
     class _Ops_Gen_Inner extends Base {
         name: str;
-        debug = 2;
-        // our local default basis, updated only once
-        colors = default_colors;
-        // default
+        debug: number = 2;
+        // our local default basis
+        colors: Color_Targets = {
+            label: some_colors.LAVENDER,
+            default: some_colors.TECHNICOLOR_GREEN,
+            forky: some_colors.PURPLE,
+            accent: some_colors.NEON_YELLOW,
+            errata: some_colors.H_RED,
+            fleck: some_colors.LAVENDER,
+        };
+        // log is colors[default]
         log: Log;
         accent: Log;
         forky: Log;
@@ -125,106 +83,68 @@ const O_Generator: Ops_Gen = (() => {
         constructor(conf?: Conf) {
             super();
             if (conf) {
-                let { colors: color_conf, debug, log_ignore_reg_repl } = conf;
-                // Add custom log cleanup
+                let { colors, debug, log_ignore_reg_repl } = conf;
                 if (log_ignore_reg_repl) global_nope_reg_repl = log_ignore_reg_repl;
-                // union args over the default w/args.colors as a new default
-                if (color_conf) {
+                // union over default basis w/our constructor args colors (a new default)
+                if (colors) {
                     this.colors = {
                         ...this.colors,
-                        ...this.escape_colors(color_conf),
+                        ...colors,
                     };
                 }
                 if (this.defi(debug)) this.debug = debug as number;
             }
-            // This is mostly logging to test our new generator instanced properly
-            setTimeout(() => {
-                // where args.debug > 6
-                ops_cache.log(6, `Core utilities setup completed`);
-            }, 100);
         }
 
-        k = Object.keys;
-        e = Object.entries;
-
-        // Partial in case of operation over conf. input
-        escape_colors = (
-            conf_colors: Partial<Color_Targets> = {},
-        ): Partial<Escaped_Color_Targets> => {
-            let escaped: Partial<Escaped_Color_Targets> = {};
-            for (const [k, color] of this.e(conf_colors)) {
-                if (color?.length) escaped[k as Color_Targets_K] = ESCAPE + color;
-                else escaped[k as Color_Targets_K] = ""; // aka white or passthrough
-            }
-            return escaped;
-        };
+        keys = Object.keys;
 
         // as in clone the basis _fns with conf
-        public ops({ colors: colors_arg = {}, debug: debug_conf, label = "" }: Conf = {}): O {
-            let conf_colors: Color_Targets = {
+        public ops({ colors: colors_conf = {}, debug: debug_conf }: Conf = {}): O {
+            let recolored_basis: Color_Targets = {
                 ...this.colors,
-                ...this.escape_colors(colors_arg),
+                ...colors_conf,
             };
             // console.log(`recolored_basis: `);
             // console.log(recolored_basis);
-            const debug = this.defi(debug_conf) ? debug_conf : this.debug;
+            const debug: number = (this.defi(debug_conf) ? debug_conf : this.debug) as number;
             return {
                 debug,
-                colors: conf_colors,
+                colors: recolored_basis,
                 // label,
+                // sub_proc_prefix: pre,
                 log: this.log_default_industrial({
-                    colors: conf_colors,
+                    colors: recolored_basis,
                     debug,
-                    pre: this.prefix({
-                        label,
-                        color: conf_colors["label"],
-                        fleck: conf_colors["fleck"],
-                        main_color: conf_colors["default"],
-                    }),
                 }),
+
                 accent: this.log_accent_industrial({
-                    colors: conf_colors,
+                    colors: recolored_basis,
                     debug,
-                    pre: this.prefix({
-                        label,
-                        color: conf_colors["label"],
-                        fleck: conf_colors["fleck"],
-                        main_color: conf_colors["accent"],
-                    }),
                 }),
                 forky: this.log_forky_industrial({
-                    colors: conf_colors,
+                    colors: recolored_basis,
                     debug,
-                    pre: this.prefix({
-                        label,
-                        color: conf_colors["label"],
-                        fleck: conf_colors["fleck"],
-                        main_color: conf_colors["forky"],
-                    }),
                 }),
                 errata: this.log_errata_industrial({
-                    colors: conf_colors,
+                    colors: recolored_basis,
                     debug,
-                    pre: this.prefix({
-                        label,
-                        color: conf_colors["label"],
-                        fleck: conf_colors["fleck"],
-                        main_color: conf_colors["errata"],
-                    }),
                 }),
+
                 // aliases of Core super methods
                 defi: this.defi,
                 empty: this.empty,
                 truncate: this.truncate,
                 wait: this.wait,
                 pretty: this.pretty,
-                simple_clean: this.simple_clean,
                 puff: this.puff,
                 fuzzy_true: this.fuzzy_true,
                 fuzzy_false: this.fuzzy_false,
                 if_in_get_index: this.if_in_get_index,
+                keys: this.keys,
+                simple_clean: this.simple_clean,
             };
         }
+
         format: Arg_Formatter = (...args: [any]) => {
             const is_num = (arg: any) => typeof arg === "number" || typeof arg === "bigint";
             const is_a_format_o = (arg: any) => Array.isArray(arg) || typeof arg === "object";
@@ -247,31 +167,31 @@ const O_Generator: Ops_Gen = (() => {
         // use default="" to not change color of passthrough
         // This would be important if sub-server has desired color
         private _logger_rescaffold: Rescaffold_Log_Ting = (
-            scaf_args: Partial<Inner_Rescaffold_Args>,
+            scaf_args: Inner_Rescaffold_Args,
         ) => {
-            const { debug = this.debug, pre } = scaf_args;
-            const post = this.post({ is_defi_IO: pre });
+            const { debug = this.debug, io } = scaf_args;
             return (min_level: number, ...args: [any]) => {
                 if (min_level > debug) return;
                 // can't use o.log at beginning of constructors
                 if (debug > 10) console.log(`_l local called w/type: ${typeof args[0]}`);
                 if (args.length > 0) {
-                    pre?.();
                     // WIP flags for work area notation - console.log(get_flag(dis));
-                    console.log(this.format(...args));
-                    post?.();
+                    io(this.format(...args));
                 }
             };
         }; // kind
 
         // curry the color type, to a new factory w/pure passthrough, inner is the config curry
         boom: Boom = ({ color_target = "default" }: Boom_Args) => {
-            const factory: Log_Factory = ({ debug, colors, pre }: Factory_Args) => {
+            const factory: Log_Factory = ({ debug, colors }: Factory_Args) => {
                 const color = colors[color_target];
+                let io: IO;
+                if (color.length) io = (s: str) => console.log(`%c ${s}`, `color: ${color}`);
+                else io = (s: str) => console.log(s);
                 return this._logger_rescaffold({
                     debug,
                     color,
-                    ...this.puff("pre", pre),
+                    io,
                 });
             };
             return factory;
@@ -293,44 +213,6 @@ const O_Generator: Ops_Gen = (() => {
         log_errata_industrial: Log_Factory = this.boom({
             color_target: "errata",
         }); // kind
-        prefix: LabelWrap = ({ label = "", color, fleck, main_color }: LabelWrapArgs) => {
-            let _color;
-            if (!label.length) {
-                if (main_color?.length) return () => this.stdout(main_color);
-                // else should already be NO color
-                return undefined;
-            }
-            let pre = `<${label}>`;
-            if (color?.length) {
-                _color = color;
-                pre = color?.length ? color + pre : pre;
-            }
-            pre += " ";
-            // color fleck="" -> also no fleck
-            if (fleck?.length) {
-                if (fleck !== _color) {
-                    pre += fleck;
-                }
-                _color = fleck;
-                pre += "- ";
-            }
-
-            if (_color !== main_color) {
-                if (main_color.length) pre += main_color;
-                else pre += NO;
-            }
-            // return () => this.stdout(pre + "___");
-            return () => this.stdout(pre);
-        };
-        post: PostWrap = ({ is_defi_IO }) => {
-            if (is_defi_IO) return () => this.stdout(NO);
-            // => else return undefined
-        };
-
-        // Console.log with no newline
-        stdout: Std_IO = (some_str?: str) => {
-            if (some_str?.length) process.stdout._write(some_str, "utf8", () => {});
-        }; // kind
         // Basically Passthrough \n\n spammers blitzd
         simple_clean = (data: string = ""): string => {
             // data is sometimes null - TODO what?
@@ -361,7 +243,6 @@ const O_Generator: Ops_Gen = (() => {
             return data.replace(regex.trim_ws_after_newline, "\n");
         };
     }
-
     // a spoofed class, anonymous and strange, facade for _Ops_Gen_Inner cache
     return class IO_Facade {
         constructor(conf?: Conf) {
@@ -377,21 +258,11 @@ const O_Generator: Ops_Gen = (() => {
     } as Ops_Gen; // It's not Ops_Gen implements, but it is still an Ops_Gen interface
 })();
 
-// Where import { Ops } from "rawx"
-// calling `new Ops(conf)` returns a rebased collection of methods aka a `: IO`
-// rebasing conf to { ...the_first_conf, ...this_conf }
-module.exports = O_Generator;
+module.exports = Ops;
 
-// ............. Local Types mostly for the config factories
-type I_O = () => void | undefined;
-type Std_IO = (s: string) => void;
+// Local Types for the config factories
+type IO = (s: str) => void;
 type Arg_Formatter = (args: any[]) => string;
-type LabelWrap = (args: LabelWrapArgs) => I_O | undefined;
-type LabelWrapArgs = { label?: string; color?: string; fleck?: string; main_color: string };
-type PostWrap = (args: { is_defi_IO?: I_O }) => I_O | undefined;
-// simple internal helper to distinguish varieties of same str type
-interface Escaped_Color_Targets extends Color_Targets {}
-type Color_Targets_K = keyof Escaped_Color_Targets;
 type Log_Arg = str | Error | { [k: string]: Log_Arg_ } | Array<Log_Arg_>;
 interface Log_Arg_ {
     [dis: string]: Log_Arg;
@@ -399,16 +270,16 @@ interface Log_Arg_ {
 // Returns Log_Ting based on conf args
 type Rescaffold_Log_Ting = (args: Inner_Rescaffold_Args) => Log;
 interface Inner_Rescaffold_Args {
+    io: IO;
     debug?: number;
     color?: str;
-    pre?: I_O;
 }
 // Creates a rescaffold factory for a specified color_target || "default"
 type Log_Factory = (args: Factory_Args) => Log;
 interface Factory_Args {
     debug: number;
-    colors: Escaped_Color_Targets;
-    pre?: I_O;
+    colors: Color_Targets;
+    // tag: str;
 }
 // The factory of factory is a war! what is it good for...
 // Actual Boom => ->|(args: Rescaffold_Args) => Rescaffold_Factory(args)|<- => Rescaffold_Log
@@ -416,3 +287,4 @@ type Boom = (args: Boom_Args) => Log_Factory;
 interface Boom_Args {
     color_target?: keyof Color_Targets;
 }
+type str = string;

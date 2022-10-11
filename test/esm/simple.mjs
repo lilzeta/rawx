@@ -1,10 +1,10 @@
-import { Server, some_colors } from "../dist/index.js";
+import { Server, some_colors } from "rawx";
 // node "./test/simple.js"
 // This is restarted by meta.js
 // runs build, pack, and exit with no watch, respawns via meta.js
 // this means simple.js changes are used after changed
 (() => {
-    Server({
+    new Server({
         name: "simple",
         procs: [
             {
@@ -12,18 +12,22 @@ import { Server, some_colors } from "../dist/index.js";
                 command: "npm run build",
                 chain_exit: "success",
             },
-            {
-                type: "exec",
-                command: "npm run _post_build",
-                chain_exit: "success",
-            },
-            {
-                type: "exec",
-                command: "npm run pack",
-                silence: "some",
-            },
+            // ,
+            // {
+            //     type: "exec",
+            //     command: "npm run _post_build",
+            //     chain_exit: "success",
+            // },
+            // {
+            //     type: "exec",
+            //     command: "npm run pack",
+            //     chain_exit: "success",
+            // },
+            // {
+            //     type: "exec",
+            //     command: "npm run reref",
+            // },
         ],
-        trigger_index: 0,
         kill_delay: 300, // too quick for many things
         // watch: {}
         colors: {

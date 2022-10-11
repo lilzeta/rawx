@@ -1,19 +1,21 @@
-"typeRoots": ["../node_modules/@types"],
-
 ## Rawx - Server Daemon
 Typed & opinionated node.js module for running child-processes & hooks  
 Server class is a process management class instantiated using JSON  
 Watch class is a file watch that triggers on file changes (or saves)  
 Ops is a class that conjoins a single node.js files' logs and configs  
 These all have configs that are deeply explicated by instantiating json.  
+
+## New support
+Rawx now has modules for CJS node, CJS Browser, ESM node & ESM Browser.  The browser modules only include Ops logging & the Base class.  All classes now operate through the typical instantiation (new keyword). Started adding arg validation for pure JS use. Typescript usage now includes types, @types soonish. 0.3.x is a early adapters 1.0.x pre-release, a lot changed to 0.3 and will work on testing it for a more proper release. The cohabitating browser module was a lot of work, learned a ton about node & typescript.  
   
-The suggested route for cjs/esm hybrid is use cjs with a small esm shim, this is working in the temp branch, also new fully typed definition file, (@types soonish). This module doesn't work in the browser if that wasn't obvious, not having an easy time with the types but when they are sorted, should be able to conditionally require node allowing for an Ops with %c console logs. Switching to require for cjs was not fun.  
+`"type": "module",` is no longer required & moduleResolution: node now works as expected.  
+Switch Ops._l to Ops.log, new Ops(...) now returns a type O.  
+The new browser colored logging  
+![Alt text](https://github.com/lilzeta/rawx/blob/main/docs/screen3.PNG "rawx-browser")  
+Would like to work on log alignment, for now node output looks like:  
+![Alt text](https://github.com/lilzeta/rawx/blob/main/docs/screen1.PNG "rawx-node")  
   
-Would like to work on log alignment, for now output looks like:  
-  
-![Alt text](https://github.com/lilzeta/rawx/blob/main/docs/screen1.PNG "rawx-out")  
-need to add line break configs still (WIP)  
-![Alt text](https://github.com/lilzeta/rawx/blob/main/docs/screen2.PNG "rawx-out2")  
+![Alt text](https://github.com/lilzeta/rawx/blob/main/docs/screen2.PNG "rawx-node2")  
   
 License is entirely open, lets enable each-other in this way.  
 Developers should not feel bad about the copy paste.  
@@ -23,18 +25,7 @@ Safety for hardware limits and for the stability of services,
 while engaged in operating license.kind freeware is entirely
 the responsibility of the developer or user running kind.
 ```
-Please keep in mind that your process is your responsibility.  >.~`
-  
-Version 0.2.3, hooks, refactor of everything  
-You may now need to enable certain things to use with a tsconfig  
-The Ops class has a new convenience closure  
-Server, Watch & Ops are all instantiated with fn calls = Server({...})  
-Core is all now part of Ops and Server, Watch don't have superclass  
-Except Server_Construct, an abstract class that is handling validation  
-Switched to normal tsc for the compiler, way better typedefs now.  
-For now `"type": "module",` in package.json is required.  
-Focus is on stability of the es6 module currently.  
-A PR for the cjs build is definitely welcome.  
+Please keep in mind that your process is your responsibility.  >.~`  
   
 Will try to get it tested on OSX & Linux soon  
 Since I use Bash, I would guess it works on Linux also  
@@ -63,6 +54,7 @@ Added command repeaters here shown in/new first example following.
 Here is the simple case, stages external sources to local for publication  
 I just made the repo that uses this and it is published here:  
 [github/lilzeta/zen](https://github.com/lilzeta/zen)  
+## Example exec repeater
 `npm i -D rawx`  
 Run with command  
 `node stage_zen.js`  
@@ -82,12 +74,11 @@ const base_ops = join(root, "o");
 const base_pup = join(base_ops, "pup");
 const src_styles = join(base_pup, "src", "pups", "styles");
 const dist_styles = join(base_pup, "dist", "styles");
-
 const debug = 4;
-const o = Ops({ default: some_colors.TECHNICOLOR_GREEN, debug });
-o._l(1, `pup_dist: ${dist_styles}`);
+const o = new Ops({ default: some_colors.TECHNICOLOR_GREEN, debug });
+o.log(1, `pup_dist: ${dist_styles}`);
 
-Server({
+new Server({
 	name: "stage_zen",
 	procs: [
 		{
@@ -128,43 +119,26 @@ This is a general node daemon, works for exec cargo, npm or general commands on 
 A more explicated format than nodemon or other similar methods.  
 For the category it is lightweight, & for size journaling here is current stats.  
   
-Major type changes, Server({...}) is now a function that operates  
-within a small closure so it has a local env (for Ops)  
-See the large example below for current Server usage/changes  
-Need to redo typedefs for the new Abstract class typedefs  
-Basically same as prev version, but wrapped in func closure/proxy/private class  
-Functions as Procs is prototyped @ V0.2, expect issues.  
-Added a preliminary example with what works for my case.  
-```
-Version 0.2.3  
-27.1kB server.js
-15.4kB server_construct.js
-08.7kB watch.js - supports standalone use
-09.7kB file_tree - will probably host in a new npm module
-02.0kB tree_complex - will go with file_tree
-15.7kB ops.js <- log config factories & core/util fn exports
-04.2kB core.js <- packaged into ops now
-03.3kB sub_proc.js - started this class to cleanup/support Server   
-```
+See the large example below for current Server usage/changes.  
+Functions as Procs (Hooks) is prototyped @ V0.3, expect issues.  
+Added a preliminary example with what works for my case below.  
+  
 The module in your node_modules is kept unminified, no obtuse scaffolds  
 Source is easily read/edited ES6 even as an npm install, literally is src   
 If you are looking for a prod server this isn't it chief .dev  
 Lean pretty hard on the throws, it's important to prevent bad args/setup  
 See typedefs if something seems to not work proper, lots of recent charges  
-make sure opts are up to date, Readme maybe not entirely accurate all the time  
-Highly reccomend using a util class wrapped like ops.js  
-It is a good shape to use as a starter for the pattern for your own.  
-  
-// ~ ~  Important gotches  
-Note for bash or windows users  
-~ alias npm="npm.cmd" can cause Ctrl-C to `hang` the process after a `Terminate (Y/N)`   
-~ Also, not using `start` as the browser open command in windows will `hang`   
-// ~~~  Please raise issues if you've found bugs in this category for any OS!  
-
-/~/ export type str = string; this typedef is to help remove horizontal scrollbar  
-from the inteface docs, if you are mad right now it's a rust format I like.  
-Adding this line to important for that random extremely angry person  
-somewhere sometime, here is me not apologizing and helping instead lol.  
+make sure opts are up to date, Readme maybe not entirely accurate all the time.   
+   
+``` 
+// ~ ~  Important gotches & notes for bash or windows users 
+alias npm="npm.cmd" can cause Ctrl-C to `hang` the process after a `Terminate (Y/N)`   
+// Also, not using `start` as the browser open command in windows will `hang`  
+Also on windows instead of exec, python use  
+{ type: execFile, command: python.exe, args: f.py }  
+```
+exec is using node.exe to spawn python see: [link for alternatives](https://stackoverflow.com/questions/45112889/bash-node-js-stdin-stdout-redirection-error-not-a-tty)  
+The webserver example below contains an example of `execFile python.exe`  
   
 For now use `path` via npm .resolve() to send an Array of (full file or full dir) paths.  
 This will spawn watches for up to 6 levels of dir children per dir ref.  
@@ -175,11 +149,11 @@ Procs is an array of Proc with these props
 a proc is a daemon passtrough to child-process\[type\](command+args)  
 // ~ ~ Typescript typedefs ~ ~ //  
 ```
-export type Type = Proc_Type | Hook_Type;
-export type Proc_Type = "exec" | "spawn" | "execFile" | "fork";
-export type Hook_Type = "fn" | "exec_fn";
-// Core_Proc args used by the daemon
-export interface Core_Proc {
+type Type = Proc_Type | Hook_Type;  
+type P_Type = "exec" | "spawn" | "execFile" | "fork";
+type H_Type = "fn" | "exec_fn";  
+// Core proc args used as an arguement  
+interface Core {
     type: Type;
     // immediately start next proc when this proc exits
     // chain another on "success"(exit 0) || any exit
@@ -192,18 +166,19 @@ export interface Core_Proc {
     on_watch?: true; // delay start till a watch/trigger
     run_if_file_dne?: str; // only run if file @ path D.N.E.
     goto_on_file_exists?: number; // skip to proc# if_file exists
-    concurrent?: A_Proc_Arg; // chain another now
+    concurrent?: P.A_Proc_Arg; // chain another now
     // where concurrent: {...Proc} <- is a Proc
     delay?: number; // wait to start self, Def: 0ms
     // on trap unwatch all after a self triggered
     trap?: true; // remove filewatch permanently
-    silence?: Silencer;
+    silence?: P.Silencer;
 }
-export interface Proc_Arg_Exec extends Core_Proc {
+// Process Proc Args - No shell arg
+interface Proc_Arg_Exec extends Core {
     type: "exec"; // child-process[type]...
     command: str; // ...[type](command ...)
 }
-export interface Proc_Arg_Def extends Core_Proc {
+interface Proc_Arg_Def extends Core {
     type: "spawn" | "execFile"; // child-process[type]...
     command: str; // ...[type](command ...)
     args?: Array<str>; // ...](command ...args)
@@ -211,61 +186,42 @@ export interface Proc_Arg_Def extends Core_Proc {
     shell?: true; // passthrough  (WIP)
 }
 // No shell arg
-export interface Proc_Arg_Fork extends Core_Proc {
+interface Proc_Arg_Fork extends Core {
     type: "fork"; // child-process[type]...
     module: "str";
 }
-// some => just on start&close messages
-export type Silencer = "some" | "all";
-export type Proc_Args = Array<Proc> | Proc;
-```
-Anything with a ? is opt into feature, no arg = no feature  
-For example  
-```   
-on_watch?: true
-// chain_exit chain stops at proc till watch trigger
-on_watch: true
-// lint error, or does nothing
-on_watch: false
-// ~ ~
-chain_exit?: true | "success" 
-// execute next when proc exits
-chain_exit: true
-// execute next when proc exits with code: 0
-chain_exit: "success"
-```
-  
-Arguments to the Server class constructor  
-```
-// verbose/all set to 10
-export type Debug = number | undefined;
-export interface Server_Args {
-    name: str; // start/stop labeling
-    procs: Proc_Args; // proc or procs
-    proc: Proc_Args; // both => Throw Error
+interface Server_Args_ {
+    name?: str; // start/stop labeling
+    procs?: P.Proc_Args; // proc or procs
+    proc?: P.Proc_Args; // both => Throw Error
     // Note: `trigger` means `watch trigger`
     trigger_index?: number; // restart from index on trigger
     trigger_indices?: number[]; // length should match watch.paths
-    watch: {
-        paths: Array<str>; // dir or file full paths
-        // WIP `complex` Modality,
-        // prototype working for full trigger explication
-        complex?: Array<Complex>;
-        match?: Matchers;
-        delay?: number;
-        poll: number;
-        debug?: Debug; // or uses Server one
-        colors?: Color_Targets; // or uses Server one
-    };
+    watch?: Watch_Args;
     colors?: Color_Targets; // or uses defaults
     //  silent 0 <-> 10 verbose
-    debug?: Debug;
+    debug: number;
     log_ignore_reg_repl?: { reg: RegExp; replace?: string }[];
     kill_delay?: number; // post kill wait in ms
     output_dir?: str; // multi path helper
     first_proc?: number; // default: 0
     // "handled" to not terminate on (Ctrl-C)
     sig?: "handled"; // not recommended
+}
+export interface Watch_Args_ {
+    paths: Array<str>; // dir or file full paths
+    name?: str; // log labeling
+    // Aliased from Server, Note: `trigger` means `watch trigger`
+    trigger_index?: number; // restart from index on trigger
+    trigger_indices?: number[]; // length should match watch.paths
+    // WIP `complex` Modality
+    match?: Matchers;
+    // prototype working for full trigger explication
+    complex?: Files_Complex_Args; // w/? Higher precedence match inside
+    delay?: number;
+    poll: number;
+    debug?: number; // or uses Server one
+    colors?: Color_Targets; // or uses Server one
 }
 ```
 Colors
@@ -306,6 +262,16 @@ export const some_colors = {
 	D_BLUE: `[0;34m`,
 	NEON_YELLOW: `[1;33m`,
 };
+// often this usage is best or most concise
+import { Ops, some_colors } from "rawx";
+const { log, errata, accent, wait } = new Ops({
+	colors: {
+		default: some_colors.PURPLE,
+		accent: some_colors.NEON_YELLOW,
+	},
+	label: "",
+});
+log(2, log setup is complete");
 ```
 Default colors
 ```
@@ -314,42 +280,62 @@ Default colors
         label: some_colors.LAVENDER,
         default: some_colors.TECHNICOLOR_GREEN,
         forky: some_colors.PURPLE,
-        accent: some_colors.D_BLUE, // TODO oops darkly
+        accent: some_colors.NEON_YELLOW,
         errata: some_colors.H_RED,
         fleck: some_colors.D_BLUE,
     }
 ```
 This is the typedef for Ops
 ```
-export interface Ops {
-    debug: Debug;
+export interface O extends Base_I {
+    // 0-10 , 11...
+    debug: number;
     colors: Color_Targets;
-    label: str;
-    _l: Log;
+    log: Log;
     accent: Log;
     forky: Log;
     errata: Log;
-    // The following 4 may move out of this
-    prefix: LabelWrap; // subproc ops...
-    post: PostWrap;
-    sub_proc_prefix: IO;
-    stdout: Std_IO;
-    // aliases of Core super methods
-    defi: Core["defi"];
-    empty: Core["empty"];
-    truncate: Core["truncate"];
-    wait: Core["wait"];
-    pretty: Core["pretty"];
-    compound_map_to_arg: Arg_Map;
-    puff: Core["puff"];
+    // wait is a simple polyfill for both browser/node
+    // same outcome as importing node:timers/setTimeout
+    wait: Wait;
+    // Uses a closure to track global stdout newlines etc and cleanup output
+    simple_clean: (s: str) => str;
 }
+export interface Conf {
+    // 0-10 , 11...
+    debug?: number;
+    colors?: Partial<Color_Targets>;
+    label?: str;
+    log_ignore_reg_repl?: { reg: RegExp; replace?: string }[];
+    unique?: true;
+}
+export interface Base_I {
+    defi: (obj: any) => boolean;
+    empty: (obj: any) => boolean;
+    truncate: (s: str, l: number) => str;
+    pretty: (obj: any) => str;
+    // (node:timers/setTimeout)-like polyfill for the browser
+    wait: Wait;
+    // maps a prop into {prop: q} or {} if undefined for ..{...}
+    puff: (p_name: str, q: any) => any;
+    fuzzy_true: Thing1_Thing2;
+    fuzzy_false: Thing1_Thing2;
+    if_in_get_index: (arr: Array<str | boolean>, p: str | boolean) => false | number;
+}
+
+// some_colors for the browser case
+const some_colors: Some_Colors = {
+    TECHNICOLOR_GREEN: `#4edecd`,
+    LAVENDER: `#7678e8`,
+    H_RED: `#f52e2e`,
+    PURPLE: `#4e02d8`,
+    D_BLUE: `#1c0089`,
+    NEON_YELLOW: `#f7f623`,
+    NO: "",
+};
 ```
-Some of the weirder ones need docs still  
-internally the escape is appended before using colors  
-aka const LAVENDER = `\x1B[1;34m` after constructor  
-Externally you can call Ops({...})  
-to get utils, passing that function any color or overrides  
-Don't append the escape externally  
+Don't append the escape for node externally  
+The browser case however needs the # passed in
 Here is a way to do TERM colors if you wanna roll your own  
 ```
 	prep: = (color: str) => {
@@ -362,14 +348,13 @@ Here is a way to do TERM colors if you wanna roll your own
 	process.stdout._write(some_string); // some_string + \n maybe
 	this.post();
 ```
-written this way it's a 'utf8' string, not 'hex' string  
-  
 The watcher is a `**/\*.\*` on any dir-full-path passed in `watch[]`  
 Except what matches or doesn't from `match: {...}`  
 Support for relative args and *.ext has some basics working.  
 Probably use a lib if anyone cares to make a suggestion.  
   
-Next config example is operating a web_app with a local_store partner server   
+## Example Hybrid source / dual Server
+a web_app with a local_store partner server   
 // ~ ~  Concurrent Server / conjoined logging ~ ~ //  
 ```
 import { join, resolve } from "path";
@@ -384,7 +369,7 @@ const api = resolve("api");
 let shared = resolve("shared");
 const global_types = resolve("global.d.ts");
 // ~ ~ ~ express storage_server ~ ~ ~
-Server({
+new Server({
     name: "api",
     procs: [
         {
@@ -428,18 +413,10 @@ Server({
 
 const web_root = resolve("web");
 // run the web app in production/static (at first), after clean and initial build
-let prod_web_dist = resolve("dist", "web");
-```
-note I have serve installed globally as per their docs
-[npmjs npx serve](https://www.npmjs.com/package/serve)
-not part of rawx
-```
-let prod_web_serve = `npx serve -l ${WEB_APP_PORT} ${prod_web_dist}`;
-
+let prod_web_serve = `winpty python.exe single_page.py`;
 const root_dir = resolve("/");
 const app_data_local = join(root_dir, "Users", "lil_z", "AppData", "Local");
 const chrome = join(app_data_local, "Chromium", "Application", "chrome_proxy.exe");
-
 // ~ ~ web_server ~ ~
 // web_procs blow by blow
 // web_procs[0, 1, 2] - prod web_app - low-energy (spin-quiet) for a non focused server
@@ -450,7 +427,7 @@ const chrome = join(app_data_local, "Chromium", "Application", "chrome_proxy.exe
 // after refresh - webpack-dev-server has hot module replacement
 // web_procs[2] -> web_proc[3] removes the watches i.e. "trap": true
 // note [2] -> [3] is the only time watch of src files triggers this server
-Server({
+new Server({
     name: "web",
     procs: [
         {
@@ -468,8 +445,9 @@ Server({
             delay: 100,
         },
         {
-            type: "exec",
-            command: `${prod_web_serve}`,
+            type: "execFile",
+            command: "python.exe",
+            args: ["single_page.py"],
             // when proc start() -> also open browser
             concurrent: {
                 type: "spawn",
@@ -505,7 +483,7 @@ Server({
         match: {
             include: ["*.ts", "*.scss"],
         },
-        // debug: 10,
+        debug: 10,
     },
     debug: 3,
     colors: {
@@ -516,19 +494,6 @@ Server({
         accent: some_colors.NEON_YELLOW,
     },
 });
-// ~ ~ ~
-// package.json
-scripts: {
-	"storage_clean": "rimraf \"storage_api_dist\"",
-	"storage_build": "webpack build --config \"storage_api/webpack.storage.config.js\"",
-	"storage_run": "node \"dist/storage_api/index.cjs\"",
-	"web_app_clean": "rimraf \"web_app_dist\"",
-	"web_app_prod_build": "webpack build --config \"web_app/webpack.web_app.config.js\"",
-	"web_app_dev_no_open": "webpack-dev-server --mode development --config \"web_app/webpack.web_app.config.js\"",
-	"web_app_dev": "webpack-dev-server --mode development --open --config \"web_app/webpack.web_app.config.js\"",
-	"start": "node start_web.js",
-	"reref": "npm i -D \"../rawx/dist/rawx-0.2.xy.tgz\""
-}
 ```
 Note currently calling storage_api_server.die() will cause web_server to unwatch shared_files  
 I have some unused wrapper code for the watch trigger in WIP  
@@ -542,6 +507,10 @@ It now kills any active chain procs on every new watch trigger
 This means saving a file during a build woud start it over   
 Not decided on exactly what to do about a /dist in src under a weird alias.  
 </>  
+
+```
+This is as far as docs are updated to current 0.3 changes
+```
   
 The function hooks are WIP, just got a couple types working  
 works w/single file compile - sass, and tsc  
@@ -563,7 +532,7 @@ export const env = path.resolve("env");
 const dist = path.resolve("dist");
 const styles_dist = path.join(dist, "styles");
 
-Server({
+new Server({
 	name: "pup_ts",
 	procs: [
 		{
@@ -668,9 +637,11 @@ Here are next goals, when or ... if
   
 ### Medium  
 - [x] - Single file compile  
+  
 is resolving ~ (Home) is desired?  
 Enable Fork Proc intersticiale communicatado w/hooks (sp.)  
-Determine a proper test library, Jest? Its a passion proj...  
+Determine a proper test library, Jest?  
+use util.inspect to log 'object' types  
   
 ### Lower priority, possibly never
 Document Watch class, (use it directly, why?)  
@@ -752,7 +723,7 @@ if (target.length > 1) {
 }
 const target_pkg_conf = join(dir, "package.json");
 const nodejs_fullpath = join(dir, node_js_target);
-Server({
+new Server({
     name: "",
     procs: [
         {
@@ -793,7 +764,7 @@ Ways to go till there are any typedef-safe-checks operational.
 I recently moved process.on("SIGINT") inside Server  
 If you need to override, do that as follows    
 ```
-let server = Server({...
+const server = new Server({...
     name: "start_some",
     procs: [...],
     watch: [...],
@@ -808,17 +779,17 @@ process.on("SIGINT", function () {
 });
 ```
 # More etcetera
-uuid is the standard for hash id, haven't peeked src yet  
-plan on making use of ids more now that procs get tagged  
+uuid is the standard for hash id  
+The uuid package has a build configuration I used to get rawx npm working.  
+   
 You can use the watcher directly as a class if you want  
 it's a direct filewatch, tree-kill was necessary  
-to terminate the sub-procs things like npm spawn   
+to terminate the sub-procs that spawn procs  
   
 ## repo as dev
-After removing tsc-esm it was necessary to put tsc on path  
-  
-`npm run build && npm run _post_build`  
-prebuild: clean & build & npm copy in prepack files
+It was necessary to put tsc on path for me.  
+`npm run build`  
+prebuild: clean & build & npm copy in module support files  
   
 `npm run release`  
 ^build^ & pack  
@@ -856,6 +827,7 @@ I've some enterprise experience w/web prod architecture (aka webpack).
 Could go for some enterprise operations experience in this vein (linux only?).  
   
 ## util.format WIP
+TODO switch to util.inspect & make depth configurable  
 [Node Docs: util.format(format[, ...args])](https://nodejs.org/api/util.html#utilformatformat-args)  
 Just enabled util.format for Array/Object and is WIP 
 looks nice but it is not thoroughly tested   

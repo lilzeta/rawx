@@ -3,19 +3,25 @@
         "rootDir": "./src",
         "outDir": "./dist",
         "baseUrl": "./src",
+        "moduleResolution": "node",
+        "module": "commonjs",
+        "target": "ES2015",
+        "lib": ["es2015"],
+        "declaration": true,
+        "noEmitOnError": true,
+        "isolatedModules": true,
+        "keyofStringsOnly": true, // fantastic
+        "noImplicitOverride": true,
         "noImplicitAny": true,
         "noUnusedLocals": true,
         "noUnusedParameters": true,
-        "module": "es2015",
-        "target": "es2015",
-        "esModuleInterop": true,
-        "allowSyntheticDefaultImports": true, // for import * syntax
-        "noEmitOnError": true,
-        "moduleResolution": "node16",
-        "lib": ["es2015", "ES2016.Array.Include"],
+        "resolveJsonModule": true, // WIP adding typedef values
+        "esModuleInterop": false, // compiles to cjs, keep wrappers minimal
+        "allowSyntheticDefaultImports": true, // similar to require style
+        "useDefineForClassFields": true, // hwat why and hwen
         "sourceMap": true,
-        "declaration": true
+        // "explainFiles": true,
     },
-    "include": ["./src/**/*.ts"],
-    "exclude": ["node_modules", "clean"]
+    "include": ["src/**/*.ts"],
+    "exclude": ["./node_modules", "./clean", "./test", "./u"]
 }

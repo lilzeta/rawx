@@ -1,0 +1,34 @@
+{ 
+    "number": {
+        "mins": {
+            "_": "_",
+            "_pulse": 400
+        }
+    },
+    "string": {
+        "one_of": {
+        },
+        "type": ["exec", "spawn", "execFile", "fork", "fn", "exec_fn"]
+    },
+    "object": {
+        "keys": {
+            "colors": ["label", "default", "accent", "forky", "errata", "fleck"]
+        },
+        "format_for_env": {
+            "colors": {
+                "_aka_css": "# then 3, 6, or 8 hex digits (0-f)",
+                "browser": "/$#[\\da-fA-F]{3,6,8}^/",
+                "_aka_ANSI_code": "[`0|1`;`2digits`m like [1;35m many other types of codes",
+                "node": "/$[.*;.*m^`/"
+            }
+        },
+        "recurse": []
+    },
+    "Array": {
+    },
+    "no_intersect": [
+    ],
+    "relational_index": {
+        
+    }
+}

@@ -1,0 +1,52 @@
+{ 
+    "number": {
+        "mins": {
+            "kill_delay": 50,
+            "exit_delay": 50,
+            "_pulse": 400
+        }
+    },
+    "string": {
+        "one_of": {
+            "sig": ["handled"]
+        },
+        "": ["exec", "spawn", "execFile", "fork"]
+    },
+    "Array": {
+        "map_from": {
+            "proc": "object",
+            "procs": "object"
+        },
+        "recurse": ["procs"]
+    },
+    "object": {
+        "keys": {
+            "colors": ["label", "default", "accent", "forky", "errata", "fleck"]
+        },
+        "format_for_env": {
+            "colors": {
+                "_aka_css": "# then 3, 6, or 8 hex digits (0-f)",
+                "browser": "/$#[\\da-fA-F]{3,6,8}^/",
+                "_aka_ANSI_code": "[`0|1`;`2digits`m like [1;35m many other types of codes",
+                "node": "/$[.*;.*m^`/"
+            }
+        },
+        "recurse": ["watch", "procs"]
+    },
+    "no_intersect": [
+        ["proc", "procs"]
+    ],
+    "no_layer_split_or_intersect": {
+        "trigger_index": {
+            "alternate": "watch",
+            "other": "trigger_indices"
+        }
+    },
+    "relational_index": {
+        "procs": [
+            "trigger_index", 
+            { "every": "trigger_indices" }, 
+            "goto_on_file_exists"
+        ]
+    }
+}
