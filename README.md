@@ -11,7 +11,7 @@ Rawx now has modules for CJS node, CJS Browser, ESM node & ESM Browser.  The bro
 `"type": "module",` is no longer required & moduleResolution: node now works as expected.  
 Switch Ops._l to Ops.log, new Ops(...) now returns a type O.  
 The new browser colored logging  
-![Alt text](https://github.com/lilzeta/rawx/blob/main/docs/screen3.PNG "rawx-browser")  
+![Alt text](https://github.com/lilzeta/rawx/blob/main/docs/screen3.png "rawx-browser")  
 Would like to work on log alignment, for now node output looks like:  
 ![Alt text](https://github.com/lilzeta/rawx/blob/main/docs/screen1.PNG "rawx-node")  
   
