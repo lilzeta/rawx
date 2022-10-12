@@ -26,6 +26,15 @@ export interface O extends Base_I {
     simple_clean(s: str): str;
 }
 
+const no_colors: Color_Targets = {
+    label: "",
+    default: "",
+    forky: "",
+    accent: "",
+    errata: "",
+    fleck: "",
+};
+
 // Ops_Gen only virtually a class (?correct title?),
 // class operates with a instance gen cache and a conf cache
 // Notice new(...) => Ops; returns the above collection of methods `O` to/into new Ops(conf) calls
@@ -87,23 +96,30 @@ const Ops: Ops_Facade = (() => {
                 if (log_ignore_reg_repl) global_nope_reg_repl = log_ignore_reg_repl;
                 // union over default basis w/our constructor args colors (a new default)
                 if (colors) {
-                    this.colors = {
-                        ...this.colors,
-                        ...colors,
-                    };
+                    if (colors === "no") {
+                        this.colors = no_colors;
+                    } else {
+                        this.colors = {
+                            ...this.colors,
+                            ...colors,
+                        };
+                    }
                 }
                 if (this.defi(debug)) this.debug = debug as number;
             }
         }
 
-        keys = Object.keys;
-
         // as in clone the basis _fns with conf
         public ops({ colors: colors_conf = {}, debug: debug_conf }: Conf = {}): O {
-            let recolored_basis: Color_Targets = {
-                ...this.colors,
-                ...colors_conf,
-            };
+            let recolored_basis: Color_Targets;
+            if (colors_conf === "no") {
+                recolored_basis = no_colors;
+            } else {
+                recolored_basis = {
+                    ...this.colors,
+                    ...colors_conf,
+                };
+            }
             // console.log(`recolored_basis: `);
             // console.log(recolored_basis);
             const debug: number = (this.defi(debug_conf) ? debug_conf : this.debug) as number;
@@ -134,13 +150,14 @@ const Ops: Ops_Facade = (() => {
                 defi: this.defi,
                 empty: this.empty,
                 truncate: this.truncate,
+                keys: this.keys,
+                entries: this.entries,
                 wait: this.wait,
                 pretty: this.pretty,
                 puff: this.puff,
                 fuzzy_true: this.fuzzy_true,
                 fuzzy_false: this.fuzzy_false,
-                if_in_get_index: this.if_in_get_index,
-                keys: this.keys,
+                // if_in_get_index: this.if_in_get_index,
                 simple_clean: this.simple_clean,
             };
         }

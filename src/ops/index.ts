@@ -14,7 +14,17 @@ export type str = string;
 
 const Ops: Ops_Gen = require("./ops");
 
+const no_colors: Color_Targets = {
+    label: "",
+    default: "",
+    accent: "",
+    forky: "",
+    errata: "",
+    fleck: "",
+};
+
 module.exports = {
     Ops,
     some_colors,
+    no_colors,
 };

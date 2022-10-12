@@ -15,7 +15,9 @@ export interface Base_I {
     puff: (p_name: str, q: any) => any;
     fuzzy_true: Thing1_Thing2;
     fuzzy_false: Thing1_Thing2;
-    if_in_get_index: (arr: Array<str | boolean>, p: str | boolean) => false | number;
+    keys: typeof Object.keys;
+    entries: typeof Object.entries;
+    // if_in_get_index: (arr: Array<str | boolean>, p: str | boolean) => false | number;
 }
 import { str } from "./index";
 export type Base_C = new () => Base_I;
@@ -86,7 +88,8 @@ export class Base implements Base_I {
         if (!item.length) return true;
         return ["false", "f", "no", "n", "none", "never"].indexOf(item.toLowerCase()) !== -1;
     }; // kind
-
+    keys = Object.keys;
+    entries = Object.entries;
     // // as an anon variable
     // arr_item_or_undef = (arr: Array<any>, i: number) => {
     //     if (arr && arr.length >= i) return arr[i];

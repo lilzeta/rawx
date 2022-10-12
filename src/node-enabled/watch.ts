@@ -4,14 +4,17 @@
  * Flux this tag if/whenever you feel like
  */
 // module.exports = Watch;
+// externals
+const { watchFile, unwatchFile, Stats } = require("fs");
+
 // Types
 import { Require_Only_One } from "../util/validation/validator";
 import { Color_Targets, O, Ops_Gen } from "../ops/index";
 import { Files_Tree_C, Files_Tree_I, Matchers } from "./files_tree/index";
 import { Complex_Arg, Files_Complex_Args, Files_Complex_I } from "./files_tree/index";
-import { str } from "../util";
+import { Class_Proxy_F, str } from "../util";
 
-// modulez
+// modulez require
 const Ops: Ops_Gen = require("../ops/ops");
 const Files_Tree: Files_Tree_C = require("./files_tree/files_tree");
 const Complex_File_Tree = require("./files_tree/files_complex");
@@ -21,6 +24,7 @@ export interface Watch_I {
     watches_clear: () => Promise<void>;
     set_trigger: (fn: Watch_Trigger) => void;
 }
+// Watch_Args_ but require one of...
 export type Watch_Args = Require_Only_One<Watch_Args_, "trigger_index" | "trigger_indices">;
 export interface Watch_Args_ {
     paths: Array<str>; // dir or file full paths
@@ -37,7 +41,7 @@ export interface Watch_Args_ {
     debug?: number; // or uses Server one
     colors?: Color_Targets; // or uses Server one
 }
-
+// Some args[] typedefs
 export type Watch_Trigger = (path: str, target?: number) => void;
 export type Trigger = number | undefined;
 export type Trigger_Map = Array<Trigger>;
@@ -46,16 +50,23 @@ export type Full_Trigger_Map = Array<Trigger_Map>;
 // pause before monitoring the file_tree
 const DEFAULT_INITIAL_WATCH_DELAY = 3500;
 
+// Wrappers for a _Watch closure w/Ops env
 export type Watch_C = new (args: Watch_Args) => Watch_I;
-const Watch: Watch_C = (() => {
-    // externals
-    // Shimming slightly so they are only imported if called with require in inner construction
-    const { watchFile, unwatchFile, Stats } = require("fs");
-    // // set in constructor
+// Server_Facade behaves as would exposed inner _Server
+class Watch_Facade {
+    constructor(args: Watch_Args) {
+        return watch_creator(args) as Watch_I;
+    }
+}
+// Now we expose _Watch through Watch_Facade as if we created it w/vanilla
+const Watch = Watch_Facade as Watch_C;
+type Watch_Creator = (args: Watch_Args) => Watch_I;
+const watch_creator: Watch_Creator = (args: Watch_Args) => {
+    // set in constructor
     let o: O;
 
     // const Watch: Watch_Class = class _Watch <= return into w/a closure
-    return class _Watch implements Watch_I {
+    class _Watch implements Watch_I {
         debug: number = 2;
         // for both _file_tree/_complex
         // trigger: (path: str, target?: number) => void;
@@ -238,6 +249,7 @@ const Watch: Watch_C = (() => {
                 });
             });
         }
-    };
-})();
+    }
+    return new _Watch(args);
+};
 module.exports = Watch;

@@ -27,10 +27,17 @@ const default_colors: Escaped_Color_Targets = {
     label: ESCAPE + some_colors.LAVENDER,
     default: ESCAPE + some_colors.TECHNICOLOR_GREEN,
     forky: ESCAPE + some_colors.PURPLE,
-    accent: ESCAPE + some_colors.D_BLUE, // TODO oops darkly
+    accent: ESCAPE + some_colors.D_BLUE,
     errata: ESCAPE + some_colors.H_RED,
-    // fleck: ESCAPE + some_colors.D_BLUE,
     fleck: ESCAPE + some_colors.LAVENDER,
+};
+const no_colors: Escaped_Color_Targets = {
+    label: "",
+    default: "",
+    forky: "",
+    accent: "",
+    errata: "",
+    fleck: "",
 };
 
 // Now our exported types
@@ -68,7 +75,7 @@ export interface O extends Base_I {
 export interface Conf {
     // 0-10 , 11...
     debug?: number;
-    colors?: Partial<Color_Targets>;
+    colors?: Partial<Color_Targets> | "no";
     label?: str;
     log_ignore_reg_repl?: { reg: RegExp; replace?: string }[];
     unique?: true;
@@ -130,10 +137,14 @@ const O_Generator: Ops_Gen = (() => {
                 if (log_ignore_reg_repl) global_nope_reg_repl = log_ignore_reg_repl;
                 // union args over the default w/args.colors as a new default
                 if (color_conf) {
-                    this.colors = {
-                        ...this.colors,
-                        ...this.escape_colors(color_conf),
-                    };
+                    if (color_conf === "no") {
+                        this.colors = no_colors;
+                    } else {
+                        this.colors = {
+                            ...this.colors,
+                            ...this.escape_colors(color_conf),
+                        };
+                    }
                 }
                 if (this.defi(debug)) this.debug = debug as number;
             }
@@ -161,10 +172,15 @@ const O_Generator: Ops_Gen = (() => {
 
         // as in clone the basis _fns with conf
         public ops({ colors: colors_arg = {}, debug: debug_conf, label = "" }: Conf = {}): O {
-            let conf_colors: Color_Targets = {
-                ...this.colors,
-                ...this.escape_colors(colors_arg),
-            };
+            let conf_colors: Color_Targets;
+            if (colors_arg === "no") {
+                conf_colors = no_colors;
+            } else {
+                conf_colors = {
+                    ...this.colors,
+                    ...this.escape_colors(colors_arg),
+                };
+            }
             // console.log(`recolored_basis: `);
             // console.log(recolored_basis);
             const debug = this.defi(debug_conf) ? debug_conf : this.debug;
@@ -212,9 +228,11 @@ const O_Generator: Ops_Gen = (() => {
                         main_color: conf_colors["errata"],
                     }),
                 }),
-                // aliases of Core super methods
+                // aliases of Core (super) methods
                 defi: this.defi,
                 empty: this.empty,
+                keys: this.keys,
+                entries: this.entries,
                 truncate: this.truncate,
                 wait: this.wait,
                 pretty: this.pretty,
@@ -222,7 +240,7 @@ const O_Generator: Ops_Gen = (() => {
                 puff: this.puff,
                 fuzzy_true: this.fuzzy_true,
                 fuzzy_false: this.fuzzy_false,
-                if_in_get_index: this.if_in_get_index,
+                // if_in_get_index: this.if_in_get_index,
             };
         }
         format: Arg_Formatter = (...args: [any]) => {

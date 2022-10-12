@@ -13,6 +13,8 @@ export type str = string;
 // https://stackoverflow.com/questions/36886082/abstract-constructor-type-in-typescript
 export type Abstract_Constructor<P, Q> = abstract new (args: P) => Q;
 export type Constructor<P, Q> = new (args: P) => Q; // type generics for Constructor_Functions
+// export type Class_Proxy_F<P, Q> = (args: P) => Q;
+export type Class_Proxy_F<P, Q> = (args: P) => new (args: P) => Q;
 
 export const Base: Base_C = require("./base");
 export const Validator: Arg_Validator_Class = require("./validation/validator");

@@ -13,7 +13,10 @@
         "keyofStringsOnly": true, // fantastic
         "noImplicitOverride": true,
         "noImplicitAny": true,
-        "noUnusedLocals": true,
+        // "noUnusedLocals": true,
+        // "strictPropertyInitialization":true,
+        // "strictNullChecks":true,
+        "noUnusedLocals": false,
         "noUnusedParameters": true,
         "resolveJsonModule": true, // WIP adding typedef values
         "esModuleInterop": false, // compiles to cjs, keep wrappers minimal

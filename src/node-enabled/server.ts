@@ -3,40 +3,52 @@
  * Original: https://github.com/lilzeta
  * Flux this tag if/whenever you feel like
  */
-// module.exports = Server; Server = _Server inside closure
+// module.exports = Server;
+// Server <= _Server class inside closure
 // External modules/type
 const { spawn, fork, exec, execFile } = require("child_process");
 const { exists } = require("fs");
 const t_kill = require("tree-kill");
 const { v4: __id } = require("uuid");
 import { ChildProcess } from "child_process";
-import { urlToHttpOptions } from "url";
 // Internal Modules
 import { O, Ops_Gen } from "../ops/index";
 import { str } from "../util";
 import { P, H, _P } from "./proc_type_defs";
 const Ops: Ops_Gen = require("../ops/ops");
 
-import { Server_Args, Server_Struct_Class } from "./server_construct";
-const Server_Construct: Server_Struct_Class = require("./server_construct");
+import { Server_Args, Server_Constructor_C, Server_Constructor_I } from "./server_construct";
+const Server_Constructor: Server_Constructor_C = require("./server_construct");
 /**
  * Note all class vars moved to Server_Construct
  * this file contains runtime methods and is alive till SigTerm or .die()
  * Use Server is Server_Class, signature as a normal class, call with `new Server(args)`
  */
-export type Server_Class = new (args: Server_Args) => Server_Struct_Class;
-export interface Server_I {
+export type Server_Class = new (args: Server_Args) => Server_I;
+export interface Server_I extends Server_Constructor_I {
+    set_range: (n: number) => void;
+    // on_constructed: () => void;
+    die: () => void;
+}
+// Server_Facade behaves as would exposed inner _Server
+class Server_Facade {
+    constructor(args: Server_Args) {
+        return server_creator(args);
+    }
     set_range: (n: number) => void;
     die: () => void;
 }
-// const Server: Server_Struct_Class = _Server inside closure
-const Server: Server_Struct_Class = (() => {
+// Now we expose _Server through Server_Facade as if we created it w/vanilla
+const Server = Server_Facade;
+type Server_Creator = (args: Server_Args) => Server_I;
+const server_creator: Server_Creator = (args: Server_Args) => {
+    // server_creator => return new _Server(args);
+
     // set in constructor
     let o: O;
 
-    class _Server extends Server_Construct implements Server_I {
+    class Server_Concrete_Class extends Server_Constructor implements Server_I {
         constructor(args: Server_Args) {
-            // Setup our class state using Server_Construct
             super(args);
             // An Env Configured Ops rebased for `Server`
             o = new Ops({
@@ -44,28 +56,37 @@ const Server: Server_Struct_Class = (() => {
                 debug: this.debug,
                 label: this.label,
             });
-            if (this.watch) this.watch.set_trigger(this.restart);
+            if (this.watch) this._watch.set_trigger(this.restart);
             if (args.dry_run) {
                 return;
             }
-
             if (args.sig !== "handled") this.set_sigterm();
             // Set a new chain_id for our first proc
-            this.tubed = __id();
+            this._tubed = __id();
             // prepare first proc, if no .on_watch also run
-            this.prerun_checks({ chain_id: this.tubed }).catch();
+            this.prerun_checks({ chain_id: this._tubed }).catch();
             // TODO test if we need .catch();
             o.accent(7, `constructor completed`);
         }
+        // TypeError: this.set_sigterm is not a function (Typescript bug?)
+        // on_constructed = (args: s) => {
+        //     if (args.sig !== "handled") this.set_sigterm();
+        //     // Set a new chain_id for our first proc
+        //     this._tubed = __id();
+        //     // prepare first proc, if no .on_watch also run
+        //     this.prerun_checks({ chain_id: this._tubed }).catch();
+        //     // TODO test if we need .catch();
+        //     o.accent(7, `constructor completed`);
+        // }
 
         prerun_checks = async ({ chain_id, direct_trigger, ...opts }: _Precheck_Args) => {
             const { trigger_file_path, trigger_index } = opts;
-            if (!direct_trigger && this.tubed && this.tubed !== chain_id) return;
+            if (!direct_trigger && this._tubed && this._tubed !== chain_id) return;
             let proc_ = this.proc_from_stack({ direct_trigger, trigger_index });
             if (proc_ === "wait") return;
             let proc = proc_ as _P._Proc;
             if (!proc) {
-                if (!this.step_procs?.length && !this.has_trigger()) {
+                if (!this._step_procs?.length && !this.has_trigger()) {
                     o.forky(2, `no procs & no trigger_index -> die()`);
                     this.die();
                 }
@@ -74,7 +95,7 @@ const Server: Server_Struct_Class = (() => {
             // this.tubed = id;
             if (proc.delay) await o.wait(proc.delay);
             // if another watch has retriggered do nothing/return
-            if (this.tubed !== chain_id) return;
+            if (this._tubed !== chain_id) return;
             o.forky(10, "proc:");
             o.forky(10, o.pretty(proc));
             // if proc.trap -> last <Server_Proc> - a one shot, remove watchers -> run command
@@ -88,13 +109,13 @@ const Server: Server_Struct_Class = (() => {
             }
         };
 
-        proc_from_stack({
+        proc_from_stack = ({
             direct_trigger = false,
             trigger_index,
         }: {
             direct_trigger?: boolean;
             trigger_index?: number;
-        }): _P._Proc | "wait" | undefined {
+        }): _P._Proc | "wait" | undefined => {
             if (direct_trigger) {
                 if (!o.defi(trigger_index)) {
                     trigger_index = this.trigger_index;
@@ -103,12 +124,12 @@ const Server: Server_Struct_Class = (() => {
                     this.set_range(trigger_index);
                 }
             }
-            if (!this.step_procs?.length) {
+            if (!this._step_procs?.length) {
                 return;
             }
-            if (this.step_procs[0].on_watch && !direct_trigger) return "wait";
-            return this.step_procs.shift();
-        }
+            if (this._step_procs[0].on_watch && !direct_trigger) return "wait";
+            return this._step_procs.shift();
+        };
 
         prepare_run = async ({ proc, chain_id, trigger_file_path }: _Prepare_Args) => {
             o.accent(9, `prepare_run, trigger_file_path?:`);
@@ -159,7 +180,7 @@ const Server: Server_Struct_Class = (() => {
 
                 cool = this.run_wrapper({ proc, trigger_file_path });
 
-                if (this.tubed !== chain_id) {
+                if (this._tubed !== chain_id) {
                     this.terminate_check();
                     return;
                 }
@@ -168,8 +189,8 @@ const Server: Server_Struct_Class = (() => {
                     // If run_process returned a process, TODO typesafe
                     if ((cool as ChildProcess).pid) {
                         cool = cool as ChildProcess;
-                        this.running.push(cool);
-                        this.proc_util.setup_subproc({
+                        this._running.push(cool);
+                        this._proc_util.setup_subproc({
                             sub_proc: cool,
                             label: _sidecar.label,
                             silence: _sidecar.silence,
@@ -231,7 +252,7 @@ const Server: Server_Struct_Class = (() => {
             sub_proc = true,
         }: _Run_Wrapper_Args): ChildProcess | Promise<number> | undefined => {
             const { type } = proc;
-            if (this.proc_util.is_fn_proc(proc)) {
+            if (this._proc_util.is_fn_proc(proc)) {
                 const _proc = proc as H._Hook_Fn;
                 if (type === "fn") {
                     return this.call_fn({ proc: _proc }).catch();
@@ -244,7 +265,7 @@ const Server: Server_Struct_Class = (() => {
                 return;
             } else {
                 const _proc = proc as _P._Proc_W_Conf;
-                if (this.proc_util.is_repeater_proc(_proc)) {
+                if (this._proc_util.is_repeater_proc(_proc)) {
                     return this.run_repeater_proc(
                         _proc.construct as _P._Run_Proc_Conf,
                         _proc._sidecar,
@@ -255,11 +276,11 @@ const Server: Server_Struct_Class = (() => {
             }
         };
 
-        run_repeater_proc(
+        run_repeater_proc = (
             p_args: _P._Run_Proc_Conf,
             _sidecar: _P._Sidecar,
             _subproc?: true,
-        ): Promise<number> {
+        ): Promise<number> => {
             return new Promise<number>(async (res) => {
                 const { type, command, options } = p_args;
                 let sub_args = p_args.args;
@@ -290,7 +311,7 @@ const Server: Server_Struct_Class = (() => {
                     //     return 0;
                     // }
                     const c_proc = subproc(rep_args[i]);
-                    this.proc_util.basic_proc_stdio(c_proc, _sidecar.silence);
+                    this._proc_util.basic_proc_stdio(c_proc, _sidecar.silence);
                     // o.basic_proc_stdio(c_proc, _sidecar.silence);
                     // TODO this implementation depends on Every c_proc sending an exit or throwing
                     // how incorrect/poorly behaved is this assumption?
@@ -317,7 +338,7 @@ const Server: Server_Struct_Class = (() => {
                 };
                 await repeater();
             });
-        }
+        };
 
         // lets keep this syncronous
         run_node_proc = (
@@ -366,20 +387,20 @@ const Server: Server_Struct_Class = (() => {
             const fn: H.Fn_W_Callback = proc.fn as H.Fn_W_Callback;
             return new Promise((res, rej) => {
                 const id = __id();
-                Object.assign(this.live_functions, { id });
+                Object.assign(this._live_functions, { id });
                 // callback/reject
                 fn({
                     callback: (code: number) => {
                         o.accent(6, `call_fn callback: ${code}`);
-                        if (o.defi(this.live_functions[id])) {
-                            delete this.live_functions[id];
+                        if (o.defi(this._live_functions[id])) {
+                            delete this._live_functions[id];
                             res(code);
                         }
                     },
                     // file_path: this.last_path_triggered,
                     // next watch trigger will clear live_functions(no cancels)
                     fail: (err: Error) => {
-                        delete this.live_functions[id];
+                        delete this._live_functions[id];
                         rej(err);
                     },
                 });
@@ -394,13 +415,13 @@ const Server: Server_Struct_Class = (() => {
                 }
                 const fn: H.Exec_Hook_Args = proc.fn as H.Exec_Hook_Args;
                 const id = __id();
-                Object.assign(this.live_functions, { id });
+                Object.assign(this._live_functions, { id });
                 // callback/reject
                 const on_close = (pid: number) => {
                     this.flush_exits(pid);
                     // WIP
-                    if (o.defi(this.live_functions[id])) {
-                        delete this.live_functions[id];
+                    if (o.defi(this._live_functions[id])) {
+                        delete this._live_functions[id];
                     }
                     res(0);
                 };
@@ -408,7 +429,7 @@ const Server: Server_Struct_Class = (() => {
                     callback: ({ command }: H.Exec_Light) => {
                         const label = `Light exec callback - ${command}`;
                         const new_child_process = exec(command);
-                        this.proc_util.setup_subproc({
+                        this._proc_util.setup_subproc({
                             sub_proc: new_child_process,
                             label,
                             silence: proc.silence,
@@ -420,27 +441,27 @@ const Server: Server_Struct_Class = (() => {
                     // next watch trigger will clear live_functions(no cancels)
                     // WIP
                     fail: (err: Error) => {
-                        delete this.live_functions[id];
+                        delete this._live_functions[id];
                         rej(err);
                     },
                 });
             });
         };
 
-        async chain_next({ code, proc, chain_option, chain_id }: _Chain_Next_Args) {
+        chain_next = async ({ code, proc, chain_option, chain_id }: _Chain_Next_Args) => {
             if (!o.defi(chain_option)) return;
             o.forky(8, `~ TOC ~`); // SNARE... haha
 
             if (chain_option !== "success" || code === 0) {
                 // if err & not last
-                if (code && this.step_procs.length) {
+                if (code && this._step_procs.length) {
                     const err = `Consider adding {chain_exit: "success"} to proc: ${proc._sidecar.label} to halt on error`;
                     o.errata(1, err);
                 }
                 // short post exit delay, TODO actually necessary for safe log flush?
                 await o.wait(this.kill_delay);
 
-                if (this.tubed !== chain_id) return;
+                if (this._tubed !== chain_id) return;
                 if (o.defi(proc.chain_next)) this.set_range(proc.chain_next);
                 // pass same chain_id to next
                 await this.prerun_checks({ chain_id, sub_proc: true });
@@ -450,17 +471,17 @@ const Server: Server_Struct_Class = (() => {
                     `proc: ${proc._sidecar.label} did not succeed with code: ${code}, execution stopped`,
                 );
             }
-        }
+        };
 
         // TODO better clearing/upkeep/proc checks
-        flush_exits(pid: number) {
+        flush_exits = (pid: number) => {
             // Todo true necessary?
             let remove_i: { [k: number]: any } = {};
-            for (let i = 0; i < this.running.length; i++) {
-                if (this.running[i].pid === pid) Object.assign(remove_i, { i: true });
-                else if (this.running[i].killed) Object.assign(remove_i, { i: true });
+            for (let i = 0; i < this._running.length; i++) {
+                if (this._running[i].pid === pid) Object.assign(remove_i, { i: true });
+                else if (this._running[i].killed) Object.assign(remove_i, { i: true });
             }
-            this.running = this.running.reduce(
+            this._running = this._running.reduce(
                 (new_r: Array<ChildProcess>, dis: ChildProcess, i: number) => {
                     !remove_i[i] && new_r.push(dis);
                     return new_r;
@@ -469,21 +490,21 @@ const Server: Server_Struct_Class = (() => {
             );
             this.terminate_check();
             o.accent(9, `flush_clean_exits is completed. `);
-        }
+        };
 
         // Not sure if what mixture of clever and dumb this may get us into, when trued
         // TODO concurrently with hooks, needs some rumination
-        async concurrently(proc_: _P._Proc, chain_id: str) {
-            if (!this.proc_util.is_fn_proc(proc_)) {
+        concurrently = async (proc_: _P._Proc, chain_id: str) => {
+            if (!this._proc_util.is_fn_proc(proc_)) {
                 const proc = proc_ as _P._Proc_W_Conf;
                 if (proc.delay) await o.wait(proc.delay);
-                if (this.tubed !== chain_id) return;
+                if (this._tubed !== chain_id) return;
                 proc.trap && this.trap(chain_id); // syncronously
 
                 // note this is not the proc with _conc, but _conc itself
                 o.accent(8, `Starting _conc proc: ${proc._sidecar.label}`);
                 const sub_proc = this.run_node_proc(proc.construct, proc._sidecar, true);
-                this.proc_util.setup_subproc({
+                this._proc_util.setup_subproc({
                     sub_proc,
                     label: proc_._sidecar.label,
                     silence: proc_._sidecar.silence,
@@ -494,29 +515,29 @@ const Server: Server_Struct_Class = (() => {
                     await this.concurrently(proc._conc, chain_id);
                 }
             }
-        }
+        };
 
-        terminate_check() {
-            if (!this.has_trigger() && !this.step_procs?.length) {
+        terminate_check = () => {
+            if (!this.has_trigger() && !this._step_procs?.length) {
                 this.die();
             }
-        }
+        };
 
         // `exec` with no follow up proc (good for dev-server w/watch server of it's own)
         trap(id: str) {
-            this.watch?.watches_clear();
+            this._watch?.watches_clear();
             this.watch = null;
-            this.tubed = id; // also enforce precidence if another watch simul.
+            this._tubed = id; // also enforce precidence if another watch simul.
             // enforced no triggers after .terminate_check() die()
             this.procs = null;
-            this.step_procs = null;
+            this._step_procs = null;
         }
 
         // note watchers has a direct link to this restart
         restart = async (file_path: str, trigger_index: number) => {
             o.errata(9, `restart, triggered by file_path: ${file_path}`);
             o.errata(9, `restart, trigger_index: ${trigger_index}`);
-            const tubed = (this.tubed = __id());
+            const tubed = (this._tubed = __id());
             o.accent(5, `restart -> | [_kill_] | -> start`);
             await this.kill_all();
             await o.wait(this.kill_delay);
@@ -531,9 +552,9 @@ const Server: Server_Struct_Class = (() => {
 
         kill_all = async (): Promise<void[]> => {
             const inner_promises: Array<Promise<void>> = [];
-            const this_running = this.running;
+            const this_running = this._running;
             const run_c = this_running.length;
-            this.live_functions = {};
+            this._live_functions = {};
             if (run_c) {
                 for (let i = 0; i < run_c; i++) {
                     if (!this_running[i].killed) {
@@ -548,22 +569,22 @@ const Server: Server_Struct_Class = (() => {
                             }),
                         );
                     }
-                    this.running = [];
+                    this._running = [];
                 }
             }
             return Promise.all(inner_promises);
         };
 
         // terminate server, sync
-        die() {
+        die = () => {
             o.forky(6, `Server.die() called, terminating any running`);
-            this.tubed = __id();
-            this.tube_lock = true;
+            this._tubed = __id();
+            // this._tube_lock = true;
             this.procs = null;
             this.kill_all().catch(); // No await, because no waiting to complete
             try {
                 // if trap didn't clear already
-                this.watch?.watches_clear();
+                this._watch?.watches_clear();
                 this.watch = null;
             } catch (err) {
                 o.errata(1, `Server.die() | this.watchers?.watches_clear(); | THROWN ERROR `);
@@ -576,11 +597,11 @@ const Server: Server_Struct_Class = (() => {
                 o.log(1, `Server.die(), shutting down complete -> exit`);
                 process.exit();
             }, this.kill_delay);
-        }
-        has_trigger() {
+        };
+        has_trigger = () => {
             return o.defi(this.trigger_index) || this.trigger_indices?.length;
-        }
-        set_sigterm() {
+        };
+        set_sigterm = () => {
             let log = o.forky;
             const dis = this;
             process.on("SIGINT", function () {
@@ -588,10 +609,11 @@ const Server: Server_Struct_Class = (() => {
                 log(1, `[L:451], shutting down complete -> exit`);
                 process.exit();
             });
-        }
+        };
     }
-    return _Server;
-})();
+    return new Server_Concrete_Class(args);
+};
+
 // Server internal method interfacing
 interface _Chain_Next_Args {
     code: number;
@@ -617,20 +639,4 @@ interface _Run_Wrapper_Args {
     trigger_file_path?: str;
     sub_proc?: true;
 }
-
-// a convenience function for Server node.js files, if one is desired
-// function npm_build() {
-//     const { exec } = require("child_process");
-//     // https://nodejs.org/api/child_process.html#child_processexeccommand-options-callback
-//     return exec("npm run build", (error: any, stdout: any, stderr: any) => {
-//         if (error) {
-//             console.error(`exec error: ${error}`);
-//             return;
-//         }
-//         console.log(`stdout: ${stdout}`);
-//         console.error(`stderr: ${stderr}`);
-//     });
-// }
-
-// `is called like Server(args)` with no new keyword
 module.exports = Server;
