@@ -5,7 +5,7 @@ Watch class is a file watch that triggers on file changes (or saves)
 Ops is a class that conjoins a single node.js files' logs and configs  
 These all have configs that are deeply explicated by instantiating json.  
   
-0.3.1 fixed an assortment of class scope leaks & added some support for setting no color easily.  
+0.3.2 fixed an assortment of class scope leaks & added some support for setting no color easily.  
 Use `{..., colors: "no"}` to use no colors on the layer or use with a new Ops(...).  
 This is particularly handy when you've set your colors in a node parent  
 and want to use the same colors in some sub proc.  
@@ -835,6 +835,8 @@ for use as a production env. executor, please raise an issue with your work!
 w/a link, w/a gist or a repo for this repo's benefit, would love to see it.  
 I've some enterprise experience w/web prod architecture (aka webpack).  
 Could go for some enterprise operations experience in this vein (linux only?).  
+
+[This mostly-online book is helpful!](https://exploringjs.com/tackling-ts/)
   
 ## util.format WIP
 TODO switch to util.inspect & make depth configurable  

@@ -524,14 +524,14 @@ const server_creator: Server_Creator = (args: Server_Args) => {
         };
 
         // `exec` with no follow up proc (good for dev-server w/watch server of it's own)
-        trap(id: str) {
+        trap = (id: str) => {
             this._watch?.watches_clear();
             this.watch = null;
             this._tubed = id; // also enforce precidence if another watch simul.
             // enforced no triggers after .terminate_check() die()
             this.procs = null;
             this._step_procs = null;
-        }
+        };
 
         // note watchers has a direct link to this restart
         restart = async (file_path: str, trigger_index: number) => {
