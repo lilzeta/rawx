@@ -5,7 +5,7 @@ import { Server_Class } from "./server";
 import { Watch_C } from "./watch";
 import { Proc_Util_C } from "./proc_util";
 import { Files_Tree_C, Files_Complex_C } from "./files_tree/index";
-import { Ops_Gen, Some_Colors } from "../ops";
+import { Color_Targets, Ops_Gen, Ops_Module, Some_Colors } from "../ops";
 import { Base_C, Util_Module } from "../util";
 
 // value exports
@@ -16,8 +16,11 @@ export const Proc_Util: Proc_Util_C = require("./proc_util");
 export const Files_Tree: Files_Tree_C = require("./files_tree/files_tree.js");
 export const Files_Complex: Files_Complex_C = require("./files_tree/files_complex");
 
-export const Ops: Ops_Gen = require("../ops/ops");
-export const some_colors: Some_Colors = require("../ops/some_colors");
+export const Ops_Mod: Ops_Module = require("../ops");
+export const Ops: Ops_Gen = Ops_Mod.Ops;
+export const some_colors: Some_Colors = Ops_Mod.some_colors;
+export const no_colors: Color_Targets = Ops_Mod.no_colors;
+
 export const Base: Base_C = require("../util/base");
 export const Util: Util_Module = require("../util");
 
@@ -49,6 +52,7 @@ module.exports = {
     // Shared/Ops/Base Logging/Utils (browser modules are not these)
     Ops,
     some_colors,
+    no_colors,
     Util,
     Base,
     default: Server,

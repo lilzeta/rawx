@@ -2,6 +2,7 @@
 export interface Ops_Module {
     Ops: Ops_Gen;
     some_colors: Some_Colors;
+    no_colors: Color_Targets;
 }
 import { O, Ops_Gen, Color_Targets, Log, Wait } from "./ops";
 export type { O, Log, Wait };

@@ -55,7 +55,7 @@ export interface Color_Targets {
     fleck: str; // "" for no fleck
 }
 export type Color_Target = keyof Color_Targets;
-export type Log = (min_level: number, ...args: [any]) => void;
+export type Log = (min_level: number, ...args: any) => void;
 
 // This is the result of an new Ops({...}) call, it is not a class but 'object'
 export interface O extends Base_I {

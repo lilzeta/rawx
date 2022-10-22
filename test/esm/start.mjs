@@ -2,13 +2,14 @@ import path from "path";
 import { Server, some_colors } from "rawx";
 // node "./test/start.mjs"
 const src_path = path.resolve("src");
-const tsconfig_path = path.resolve("tsconfig.json");
+// const tsconfig_path = path.resolve("tsconfig.json");
 (() => {
     new Server({
         name: "start",
         trigger_index: 0,
         watch: {
-            paths: [src_path, tsconfig_path],
+            paths: [src_path],
+            // paths: [src_path, tsconfig_path],
             poll: 3000,
         },
         procs: [

@@ -13,7 +13,7 @@ const Watch: Watch_C = require("./watch");
 const ops_mod: Ops_Module = require("../ops/index");
 const Proc_Util: Proc_Util_C = require("./proc_util");
 // Typescript json value import tsconfig:{"resolveJsonModule": true}
-import * as server_schema from "../util/validation/schema/server_schema.json";
+// import * as server_schema from "../util/validation/schema/server_schema.json";
 
 // internal types
 import { Color_Targets, O, Ops_Module } from "../ops/index";
@@ -139,16 +139,16 @@ const server_constructor_creator: Server_Constructor_Creator = (
         _validator: Arg_Validator_I;
         constructor(args: Server_Args) {
             if (!args) throw new Error("No server configuration was provided, nothing to do.");
-            if (args.dry_run) {
-                // Block is for ./src/scripts/build_json_validator.js (strip on pack?)
-                o = new ops_mod.Ops();
-                this._proc_util = new Proc_Util({ inherit_ops: o });
-                this.setup_procs({ procs: args.procs, proc: args.proc });
-                this._validator = new Validator("server", server_schema);
-                this._validator.validate(args);
-                return;
-            }
-            this._validator = new Validator("server", server_schema);
+            // if (args.dry_run) {
+            //     // Block is for ./src/scripts/build_json_validator.js (strip on pack?)
+            //     o = new ops_mod.Ops();
+            //     this._proc_util = new Proc_Util({ inherit_ops: o });
+            //     this.setup_procs({ procs: args.procs, proc: args.proc });
+            //     this._validator = new Validator("server", server_schema);
+            //     this._validator.validate(args);
+            //     return;
+            // }
+            // this._validator = new Validator("server", server_schema);
             // Throws iff any invalid
             // this._validator.validate(args);
             // this._validator.set_validated(this);

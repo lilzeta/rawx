@@ -66,7 +66,7 @@ const server_creator: Server_Creator = (args: Server_Args) => {
             // prepare first proc, if no .on_watch also run
             this.prerun_checks({ chain_id: this._tubed }).catch();
             // TODO test if we need .catch();
-            o.accent(7, `constructor completed`);
+            o.accent(7, "test", `constructor completed`);
         }
         // TypeError: this.set_sigterm is not a function (Typescript bug?)
         // on_constructed = (args: s) => {

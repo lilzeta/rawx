@@ -1,6 +1,7 @@
 src/
 node_modules/
 clean/
+stage/
 test/
 .prettier*
 .package-lock.json

@@ -1,8 +1,8 @@
 {
     "compilerOptions": {
-        "rootDir": "./src",
-        "outDir": "./dist",
-        "baseUrl": "./src",
+        "rootDir": ".",
+        "outDir": "../dist",
+        "baseUrl": ".",
         "moduleResolution": "node",
         "module": "commonjs",
         "target": "ES2015",
@@ -25,6 +25,5 @@
         "sourceMap": true,
         // "explainFiles": true,
     },
-    "include": ["src/**/*.ts"],
-    "exclude": ["./node_modules", "./clean", "./test", "./u"]
+    "include": ["**/*.ts"],
 }
