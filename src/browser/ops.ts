@@ -6,13 +6,15 @@
 // External modules
 const format_ = require("util").format;
 // Internal modules
-import { Some_Colors } from "./some_colors";
+import { Some_Colors } from "./color_util";
 const Base: Base_C = require("../util/base");
-const some_colors: Some_Colors = require("./some_colors");
+const color_util_mod = require("./color_util");
+const some_colors: Some_Colors = color_util_mod.some_colors;
+
 // Internal Types
 import { Base_C, Base_I } from "../util";
 import { Abstract_Constructor } from "../util";
-import { Conf, Color_Targets, Log } from "../ops/index";
+import { Ops_Conf, Color_Targets, Log } from "../ops/index";
 
 // The examples demonstrate `const o = Ops({...});` provides usage of Ops_I as o
 export interface O extends Base_I {
@@ -38,8 +40,8 @@ const no_colors: Color_Targets = {
 // Ops_Gen only virtually a class (?correct title?),
 // class operates with a instance gen cache and a conf cache
 // Notice new(...) => Ops; returns the above collection of methods `O` to/into new Ops(conf) calls
-export type Ops_Gen = new (conf?: Conf) => O;
-export type Ops_Facade = Abstract_Constructor<Conf | undefined, O>;
+export type Ops_Gen = new (conf?: Ops_Conf) => O;
+export type Ops_Facade = Abstract_Constructor<Ops_Conf | undefined, O>;
 const Ops: Ops_Facade = (() => {
     // There is only 1 of these closures globally
     // stores a singleton instance of _Ops_Gen_Inner
@@ -89,7 +91,7 @@ const Ops: Ops_Facade = (() => {
         errata: Log;
         // set_logging_etc_c_proc: (args: Set_Proc_Logger_Args) => void;
 
-        constructor(conf?: Conf) {
+        constructor(conf?: Ops_Conf) {
             super();
             if (conf) {
                 let { colors, debug, log_ignore_reg_repl } = conf;
@@ -110,7 +112,7 @@ const Ops: Ops_Facade = (() => {
         }
 
         // as in clone the basis _fns with conf
-        public ops({ colors: colors_conf = {}, debug: debug_conf }: Conf = {}): O {
+        public ops({ colors: colors_conf = {}, debug: debug_conf }: Ops_Conf = {}): O {
             let recolored_basis: Color_Targets;
             if (colors_conf === "no") {
                 recolored_basis = no_colors;
@@ -262,7 +264,7 @@ const Ops: Ops_Facade = (() => {
     }
     // a spoofed class, anonymous and strange, facade for _Ops_Gen_Inner cache
     return class IO_Facade {
-        constructor(conf?: Conf) {
+        constructor(conf?: Ops_Conf) {
             if (ops_gen_cached) {
                 if (!conf) return ops_cache;
                 return ops_gen_cached.ops(conf);

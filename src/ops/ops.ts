@@ -13,11 +13,14 @@
 // External
 const format_ = require("node:util").format;
 // Internal
-import { Base_C, Base_I } from "../util/base";
+import { Base_C, str } from "../util/export_types";
 const Base: Base_C = require("../util/base");
-import { Some_Colors } from "./some_colors";
-const some_colors: Some_Colors = require("./some_colors");
-import { str, Abstract_Constructor } from "../util";
+import { Some_Colors } from "./color_util";
+const color_util_mod = require("./color_util");
+const some_colors: Some_Colors = color_util_mod.some_colors;
+import { Abstract_Constructor } from "../util";
+import { Color_Targets, Ops_Conf } from "./args_types";
+import { Log, O, Ops_Gen } from "./export_types";
 
 // \033 in hex
 const ESCAPE = "\x1B";
@@ -40,53 +43,9 @@ const no_colors: Escaped_Color_Targets = {
     fleck: "",
 };
 
-// Now our exported types
-export interface Color_Targets {
-    // Class name color
-    label: str; // "" for no labeling
-    // All sub-proc labelling
-    default: str;
-    // Accented for attention
-    accent: str;
-    // Start/Close/Proc specific event
-    forky: str;
-    errata: str;
-    // The `-` between label & log
-    fleck: str; // "" for no fleck
-}
-export type Color_Target = keyof Color_Targets;
-export type Log = (min_level: number, ...args: any) => void;
-
-// This is the result of an new Ops({...}) call, it is not a class but 'object'
-export interface O extends Base_I {
-    // 0-10 , 11...
-    debug: number;
-    colors: Color_Targets;
-    log: Log;
-    accent: Log;
-    forky: Log;
-    errata: Log;
-    // wait is a simple polyfill for both browser/node
-    // same outcome as importing node:timers/setTimeout
-    wait: Wait;
-    // Uses a closure to track global stdout newlines etc and cleanup output
-    simple_clean: (s: str) => str;
-}
-export interface Conf {
-    // 0-10 , 11...
-    debug?: number;
-    colors?: Partial<Color_Targets> | "no";
-    label?: str;
-    log_ignore_reg_repl?: { reg: RegExp; replace?: string }[];
-    unique?: true;
-}
-// node:timers/setTimeout...now a simple polyfill for the browser
-export type Wait = (n: number) => Promise<void>;
-
 // Virtually a class (?correct title?), class operates as a class cache with a conf basis override
 // Notice new(...) => Ops; returns the above collection of methods when new Ops(conf)
-export type Ops_Gen = new (conf?: Conf) => O;
-export type Ops_Facade = Abstract_Constructor<Conf | undefined, O>;
+type Ops_Facade = Abstract_Constructor<Ops_Conf | undefined, O>;
 
 const O_Generator: Ops_Gen = (() => {
     // There is only 1 of these closures globally
@@ -129,7 +88,7 @@ const O_Generator: Ops_Gen = (() => {
         errata: Log;
         // set_logging_etc_c_proc: (args: Set_Proc_Logger_Args) => void;
 
-        constructor(conf?: Conf) {
+        constructor(conf?: Ops_Conf) {
             super();
             if (conf) {
                 let { colors: color_conf, debug, log_ignore_reg_repl } = conf;
@@ -171,7 +130,11 @@ const O_Generator: Ops_Gen = (() => {
         };
 
         // as in clone the basis _fns with conf
-        public ops({ colors: colors_arg = {}, debug: debug_conf, label = "" }: Conf = {}): O {
+        public ops({
+            colors: colors_arg = {},
+            debug: debug_conf,
+            label = "",
+        }: Ops_Conf = {}): O {
             let conf_colors: Color_Targets;
             if (colors_arg === "no") {
                 conf_colors = no_colors;
@@ -382,7 +345,7 @@ const O_Generator: Ops_Gen = (() => {
 
     // a spoofed class, anonymous and strange, facade for _Ops_Gen_Inner cache
     return class IO_Facade {
-        constructor(conf?: Conf) {
+        constructor(conf?: Ops_Conf) {
             if (ops_gen_cached) {
                 if (!conf) return ops_cache;
                 return ops_gen_cached.ops(conf);

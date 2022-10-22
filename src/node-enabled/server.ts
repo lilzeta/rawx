@@ -13,23 +13,19 @@ const { v4: __id } = require("uuid");
 import { ChildProcess } from "child_process";
 // Internal Modules
 import { O, Ops_Gen } from "../ops/index";
-import { str } from "../util";
+import { Server_Args } from "./args_types";
+import { Server_I, str } from "./export_types";
 import { P, H, _P } from "./proc_type_defs";
 const Ops: Ops_Gen = require("../ops/ops");
 
-import { Server_Args, Server_Constructor_C, Server_Constructor_I } from "./server_construct";
+import { Server_Constructor_C } from "./server_construct";
 const Server_Constructor: Server_Constructor_C = require("./server_construct");
 /**
  * Note all class vars moved to Server_Construct
  * this file contains runtime methods and is alive till SigTerm or .die()
  * Use Server is Server_Class, signature as a normal class, call with `new Server(args)`
  */
-export type Server_Class = new (args: Server_Args) => Server_I;
-export interface Server_I extends Server_Constructor_I {
-    set_range: (n: number) => void;
-    // on_constructed: () => void;
-    die: () => void;
-}
+
 // Server_Facade behaves as would exposed inner _Server
 class Server_Facade {
     constructor(args: Server_Args) {
@@ -557,18 +553,18 @@ const server_creator: Server_Creator = (args: Server_Args) => {
             this._live_functions = {};
             if (run_c) {
                 for (let i = 0; i < run_c; i++) {
-                    if (!this_running[i].killed) {
-                        inner_promises.push(
-                            new Promise((res_, _rej) => {
-                                // TODO find way to skip dead this.running[i]
-                                t_kill(this_running[i].pid, "SIGKILL", (err: any) => {
-                                    // intentionally set above 10
-                                    o.errata(11, err); // so noisy
-                                    res_(); // no rejecting here on err!
-                                });
-                            }),
-                        );
-                    }
+                    // if (!this_running[i].killed) {
+                    inner_promises.push(
+                        new Promise((res_, _rej) => {
+                            // TODO find a good way to skip dead
+                            t_kill(this_running[i].pid, "SIGKILL", (err: any) => {
+                                // intentionally set above 10
+                                o.errata(11, err); // so noisy
+                                res_(); // no rejecting here on err!
+                            });
+                        }),
+                    );
+                    // }
                     this._running = [];
                 }
             }

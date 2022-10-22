@@ -7,11 +7,9 @@
 // This file is copied not compiled
 // from ./src/modules/browser-esm to ./dist/modules/browser-esm
 // Util/Ops
-import { default as Ops } from "../../browser/ops.js";
-export { Ops };
-export { default as some_colors } from "../../browser/some_colors.js";
-import { default as Browser_Mod } from "../../browser/ops.js";
+import { default as Browser_Mod } from "../../browser/index.js";
+export const Ops = Browser_Mod.Ops;
+export const some_colors = Browser_Mod.some_colors;
 export const no_colors = Browser_Mod.no_colors;
-export { default as Base } from "../../util/base.js";
-
+export const Base = Browser_Mod.Base;
 export default Ops;

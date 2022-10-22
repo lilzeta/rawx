@@ -17,34 +17,13 @@ const Proc_Util: Proc_Util_C = require("./proc_util");
 
 // internal types
 import { Color_Targets, O, Ops_Module } from "../ops/index";
-import { str } from "../util";
-import { Watch_Args, Watch_C, Watch_I } from "./watch";
+import { Watch_C } from "./watch";
 import { P, H, _P } from "./proc_type_defs";
-import { Arg_Validator_Class, Arg_Validator_I } from "../util/validation/validator";
-import { Require_Only_One } from "../util/validation/validator";
-const Validator: Arg_Validator_Class = require("../util/validation/validator");
-import { Proc_Util_C, Proc_Util_I } from "./proc_util";
-
-export type Server_Args = Require_Only_One<Server_Args_, "procs" | "proc">;
-export interface Server_Args_ {
-    name?: str; // start/stop labeling
-    procs?: P.Proc_Args; // proc or procs
-    proc?: P.Proc_Args; // both => Throw Error
-    // Note: `trigger` means `watch trigger`
-    trigger_index?: number; // restart from index on trigger
-    trigger_indices?: number[]; // length should match watch.paths
-    watch?: Watch_Args;
-    colors?: Color_Targets; // or uses defaults
-    //  silent 0 <-> 10 verbose
-    debug: number;
-    log_ignore_reg_repl?: { reg: RegExp; replace?: string }[];
-    kill_delay?: number; // post kill wait in ms
-    output_dir?: str; // multi path helper
-    first_proc?: number; // default: 0
-    // "handled" to not terminate on (Ctrl-C)
-    sig?: "handled"; // not recommended
-    dry_run?: true; // construct w/no execution (for debugging)
-}
+// import { Arg_Validator_Class, Arg_Validator_I } from "../util/validation/validator";
+// const Validator: Arg_Validator_Class = require("../util/validation/validator");
+import { Server_Args, Watch_Args } from "./args_types";
+import { Proc_Util_C, Proc_Util_I, Server_Constructor_I, str, Watch_I } from "./export_types";
+import { Arg_Validator_I } from "util/validation/validator";
 
 // set in constructor
 let o: O;
@@ -56,38 +35,6 @@ const server_mins: any = {
 };
 const Truncate_Label = 100;
 // const Truncate_Label = 60;
-
-export interface Server_Constructor_I {
-    name: str;
-    label: str; // Not an arg, name.translated
-    debug: number;
-    // aka wait for port to clear
-    kill_delay: number; // in ms
-    // yet to determine if we need to allow last proc any log time
-    exit_delay: number; // in ms
-    procs: Array<_P._Proc | H._Hook_Fn>; // used to reset stack if trigger_index
-    // likely uncommon first is not 0?
-    first_proc: number;
-    // These are aliased into Watch for now
-    trigger_index?: number;
-    trigger_indices?: number[];
-    _step_procs: Array<_P._Proc | H._Hook_Fn>; // used as current stack
-    _range_cache: Array<_P._Proc | H._Hook_Fn>;
-    _last_range_at: number; // is the last range cache valid?
-    _proc_util: Proc_Util_I;
-    set_range: (n: number) => void;
-
-    _watch: Watch_I;
-    watch: Watch_Args;
-    colors: Color_Targets;
-
-    // uuid of the most recent chain
-    _tubed?: str;
-    // still incomplete feature
-    // _tube_lock?: true;
-    _running?: Array<ChildProcess>;
-    _live_functions: Record<str, str>;
-}
 
 export type Server_Constructor_C = new (args: Server_Args) => Server_Constructor_I;
 // Server_Facade behaves as would exposed inner _Server

@@ -1,22 +1,9 @@
 // module.exports = Proc_Util;
 import { ChildProcess } from "child_process";
 import { O, str } from "../ops/index";
+import { Basic_Proc_Stdio, Setup_Proc_Util_Args } from "./args_types";
+import { Proc_Util_C, Proc_Util_I } from "./export_types";
 import { P, _P } from "./proc_type_defs";
-export type Proc_Util_C = new (args: { inherit_ops: O }) => Proc_Util_I;
-export interface Proc_Util_I {
-    is_fn_proc: (proc: P.A_Proc_Arg | _P._Proc) => boolean;
-    is_repeater_proc: (proc: _P._Proc_W_Conf) => boolean;
-    setup_subproc: (a: Setup_Proc_Util_Args) => void;
-    basic_proc_stdio: Basic_Proc_Stdio;
-}
-
-interface Setup_Proc_Util_Args {
-    sub_proc: ChildProcess;
-    label: str;
-    silence?: P.Silencer;
-    on_close: (pid: number) => void;
-}
-type Basic_Proc_Stdio = (proc: ChildProcess, silence?: P.Silencer) => void;
 
 // const ESCAPE = "\x1B";
 // AKA SET no color escape code (in utf mode)

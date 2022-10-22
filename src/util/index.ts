@@ -3,11 +3,10 @@ export interface Util_Module {
     Base: Base_C;
     Validator: Arg_Validator_Class;
 }
-import { Base_C, Base_I, Wait, Thing1_Thing2 } from "./base";
+
+import { Base_C, Base_I, Wait, Thing1_Thing2 } from "./export_types";
 import { Arg_Validator_Class } from "./validation/validator";
 export type { Base_C, Base_I, Wait, Thing1_Thing2, Arg_Validator_Class };
-// poor judgements
-export type str = string;
 
 // type generics for Constructor functions
 // https://stackoverflow.com/questions/36886082/abstract-constructor-type-in-typescript

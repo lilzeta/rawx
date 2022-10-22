@@ -4,8 +4,7 @@ export class Validator {
     constructor() {}
 }
 
-import { Server_Constructor_I } from "../../node-enabled/server_construct";
-import { str } from "../../util";
+import { Server_Constructor_I, str } from "../../node-enabled/export_types";
 // https://stackoverflow.com/questions/53387838/how-to-ensure-an-arrays-values-the-keys-of-a-typescript-interface/53395649#53395649
 type Invalid<T> = ["Needs to be all of", T];
 type Resolution_Is_T_In_U<T, U extends T[]> = U &

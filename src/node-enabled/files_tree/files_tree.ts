@@ -5,13 +5,9 @@
  */
 const { join, resolve } = require("path");
 const Ops: Ops_Gen = require("../../ops/ops");
+import { Files_Tree_Args, Matchers, Match_Item_Arg } from "../args_types";
 import { O, Ops_Gen, str } from "../../ops";
-export interface Matchers {
-    include?: Match_Item_Arg;
-    exclude?: Match_Item_Arg;
-    include_dir?: Match_Item_Arg;
-    exclude_dir?: Match_Item_Arg;
-}
+import { Files_Tree_I, Trunk_Paths } from "../export_types";
 
 // a made up thing, somebody has no doubt named this before
 // Allows inference through null propogation, seems effecient
@@ -34,31 +30,11 @@ interface _Squirrel {
     path_hasher: { [s: str]: any };
 }
 export type Files_Tree_C = new (args: Files_Tree_Args) => Files_Tree_I;
-export interface Files_Tree_Args {
-    root_paths: str[];
-    match: Matchers;
-    max_depth?: number;
-}
-export type Trunk_Paths = readonly str[];
-// str - Only of the format of dirname or
-// *.ext or file-name.ext no \\ \/ for now
-// RegExp will use exactly what you pass
-export type Match_Item_Arg = RegExp | Array<RegExp> | str | Array<str>;
-
-export interface Files_Tree_I {
-    setup_tree: () => Promise<void>;
-    // returns post construction full paths
-    trunks: () => Array<Trunk_Paths>;
-}
-
 const files_tree: Files_Tree_C = (() => {
     // externals
     const { readdir, stat } = require("fs/promises");
     // Just a quicky with defaults
     let o: O = new Ops();
-    // export type Trunk = readonly [Trunk_Paths, number | undefined];
-    // export type Trunks = readonly [readonly [str, number | undefined, Trunk_Paths]];
-    // as in console.log when the glass cracks
 
     const get_jukes = (match?: Matchers): _Matchers | undefined => {
         if (!match) return undefined;
@@ -73,7 +49,7 @@ const files_tree: Files_Tree_C = (() => {
          * true => terminate branch search
          * */
         /**
-         * inc_match, true => deny
+         * inc_match, true => deny (as in end goal of false to pass)
          * null propogated => false
          * has include, no match => !false
          * has include, any match => true => !true
@@ -83,7 +59,7 @@ const files_tree: Files_Tree_C = (() => {
             return reg_arr[i].exec(s) || inc(s, reg_arr, i + 1);
         };
         /**
-         * ex_match, true => deny
+         * ex_match, true => deny (as in end goal of false to pass)
          * null propogated => false
          * has exclude => no match => false
          * has exclude => any match => true
@@ -145,7 +121,13 @@ const files_tree: Files_Tree_C = (() => {
         return flattened;
     };
 
-    // WIP, prob find some util module to do this, ick
+    /**
+     * WIP, prob find some util module to do this, ick
+     * Converts input arg string w/wildcards to equiv RegExp
+     * @param s input arg of the format *.ext
+     * @returns equiv RegExp
+     */
+    //
     const str_to_reg = (s: str) => {
         // \s is space
         const prep = s.replace(" ", "\\s");
@@ -153,8 +135,8 @@ const files_tree: Files_Tree_C = (() => {
         const s_joined = prep.split(".").join("\\.");
         // replace wild with any count of word-char/hyphen
         const spl_wild = s_joined.split("*").join("[\\w-]*");
-        // o.accent(1, `spl_wild`);
-        // o.accent(1, spl_wild);
+        o.accent(9, `spl_wild`);
+        o.accent(9, spl_wild);
         return new RegExp(spl_wild);
     };
     return class File_Tree_Class implements Files_Tree_I {
@@ -183,8 +165,8 @@ const files_tree: Files_Tree_C = (() => {
                 [],
             );
             this._reg = get_jukes(args.match);
-            // o.accent(10, `this._reg: `);
-            // o.accent(10, this._reg);
+            o.accent(10, `this._reg: `);
+            o.accent(10, this._reg);
         }
         // These are all in a way syncro, TODO async ->{...sq} issues
         // One Quick Squirrel...
@@ -224,10 +206,10 @@ const files_tree: Files_Tree_C = (() => {
             sq.path_hasher = Object.assign(sq.path_hasher, [hash]);
             const stat_info = await stat(sq.pwd);
             if (stat_info.isDirectory()) {
-                // o.accent(1, `this._reg?.include_dir?.(sq.pwd):`);
-                // o.accent(1, this._reg?.include_dir?.(sq.pwd));
-                // o.accent(1, `this._reg?.exclude_dir?.(sq.pwd):`);
-                // o.accent(1, this._reg?.exclude_dir?.(sq.pwd));
+                o.accent(8, `this._reg?.include_dir?.(sq.pwd):`);
+                o.accent(8, this._reg?.include_dir?.(sq.pwd));
+                o.accent(8, `this._reg?.exclude_dir?.(sq.pwd):`);
+                o.accent(8, this._reg?.exclude_dir?.(sq.pwd));
                 if (this._reg?.include_dir?.(sq.pwd)) return [];
                 if (this._reg?.exclude_dir?.(sq.pwd)) return [];
                 if (sq.depth > this.max_depth) {

@@ -1,3 +1,9 @@
+import { Color_Targets } from "../ops/index";
+
+export interface Color_Util_Mod {
+    some_colors: Some_Colors;
+    no_colors: Color_Targets;
+}
 export interface Some_Colors {
     TECHNICOLOR_GREEN: string;
     LAVENDER: string;
@@ -16,4 +22,15 @@ const some_colors: Some_Colors = {
     NEON_YELLOW: `#f7f623`,
     NO: "",
 };
-module.exports = some_colors;
+const no_colors: Color_Targets = {
+    label: "",
+    default: "",
+    accent: "",
+    forky: "",
+    errata: "",
+    fleck: "",
+};
+module.exports = {
+    some_colors,
+    no_colors,
+};

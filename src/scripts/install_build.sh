@@ -9,6 +9,7 @@ if [[ $# -lt 1 ]]; then
         fi
     done
 else
+    # because running an .sh in another proj requires a path rel per local $(pwd)
     for a_path in $1/*; do
         # echo "a_path: $a_path"
         if [[ $a_path =~ $a_tgz ]]; then

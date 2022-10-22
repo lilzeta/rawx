@@ -1,8 +1,11 @@
 {
+    // "ts-node": {
+    //     "require": ["tsconfig-paths/register"]
+    // },
     "compilerOptions": {
         "rootDir": ".",
         "outDir": "../dist",
-        "baseUrl": ".",
+        "baseUrl": "./",
         "moduleResolution": "node",
         "module": "commonjs",
         "target": "ES2015",

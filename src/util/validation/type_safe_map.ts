@@ -1,4 +1,4 @@
-import { str } from "../index";
+import { str } from "../export_types";
 // Outline of this solution & source
 // https://2ality.com/2020/04/classes-as-values-typescript.html
 // type Class<T> = new (...args: any[]) => T;
