@@ -44,9 +44,9 @@ while ( $line = <IN> ) {
             $s = "$1";
             if( "$line" =~ /(?=lev)|(?:\d{1, 2})/ ) {
                 push(@out, "$line");
-                push(@out, sprintf "$s\"%-6s:%03d|\",\n", $pad, $filename, $ln);
+                push(@out, sprintf "$s\"%-*s:%03d|\",\n", $pad, $filename, $ln);
             } else {
-                push(@out, sprintf "$s\"%-8s:%03d|\",\n", $pad, $filename, $ln);
+                push(@out, sprintf "$s\"%-*s:%03d|\",\n", $pad, $filename, $ln);
                 push(@out, "$line");
             }
         }
