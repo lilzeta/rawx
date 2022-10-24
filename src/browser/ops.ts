@@ -34,8 +34,9 @@ const no_colors: Color_Targets = {
     forky: "",
     accent: "",
     errata: "",
-    fleck: "",
+    bar: "",
 };
+const def = 2;
 
 // Ops_Gen only virtually a class (?correct title?),
 // class operates with a instance gen cache and a conf cache
@@ -71,6 +72,8 @@ const Ops: Ops_Facade = (() => {
         // no start newline space
         trim_ws_after_newline: /\n[\s\t]*/,
     };
+    let jig: any;
+    let d: number;
 
     class _Ops_Gen_Inner extends Base {
         name: str;
@@ -82,7 +85,7 @@ const Ops: Ops_Facade = (() => {
             forky: some_colors.PURPLE,
             accent: some_colors.NEON_YELLOW,
             errata: some_colors.H_RED,
-            fleck: some_colors.LAVENDER,
+            bar: some_colors.LAVENDER,
         };
         // log is colors[default]
         log: Log;
@@ -164,7 +167,7 @@ const Ops: Ops_Facade = (() => {
             };
         }
 
-        format: Arg_Formatter = (...args: [any]) => {
+        format: Arg_Formatter = (...args: [any]): str => {
             const is_num = (arg: any) => typeof arg === "number" || typeof arg === "bigint";
             const is_a_format_o = (arg: any) => Array.isArray(arg) || typeof arg === "object";
             const arg_f = (arg: any) => {
@@ -174,9 +177,8 @@ const Ops: Ops_Facade = (() => {
                 if (is_a_format_o(arg)) return format_("%o", arg);
                 else return format_(arg);
             };
-            let jiggler;
             const f_args = args.reduce((propogater: str[], arg) => {
-                (jiggler = arg_f(arg)).length && propogater.push(jiggler);
+                (jig = arg_f(arg)).length && propogater.push(jig);
                 return propogater;
             }, []);
             return f_args.join(" ");
@@ -189,13 +191,15 @@ const Ops: Ops_Facade = (() => {
             scaf_args: Inner_Rescaffold_Args,
         ) => {
             const { debug = this.debug, io } = scaf_args;
-            return (min_level: number, ...args: [any]) => {
-                if (min_level > debug) return;
+            return (...args: any[]) => {
+                let d = isNaN((jig = parseInt(args[0]))) ? def : jig;
+                typeof args[0] === "number" ? ([d, ...args] = args) : (d = def);
+                if (d > debug) return;
                 // can't use o.log at beginning of constructors
                 if (debug > 10) console.log(`_l local called w/type: ${typeof args[0]}`);
                 if (args.length > 0) {
                     // WIP flags for work area notation - console.log(get_flag(dis));
-                    io(this.format(...args));
+                    io(this.format.apply(null, args));
                 }
             };
         }; // kind

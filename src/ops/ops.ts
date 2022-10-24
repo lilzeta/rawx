@@ -22,6 +22,8 @@ import { Abstract_Constructor } from "../util";
 import { Color_Targets, Ops_Conf } from "./args_types";
 import { Log, O, Ops_Gen } from "./export_types";
 
+const def = 2;
+
 // \033 in hex
 const ESCAPE = "\x1B";
 // AKA the `SET no color` escape code, in utf8
@@ -32,7 +34,7 @@ const default_colors: Escaped_Color_Targets = {
     forky: ESCAPE + some_colors.PURPLE,
     accent: ESCAPE + some_colors.D_BLUE,
     errata: ESCAPE + some_colors.H_RED,
-    fleck: ESCAPE + some_colors.LAVENDER,
+    bar: ESCAPE + some_colors.LAVENDER,
 };
 const no_colors: Escaped_Color_Targets = {
     label: "",
@@ -40,7 +42,7 @@ const no_colors: Escaped_Color_Targets = {
     forky: "",
     accent: "",
     errata: "",
-    fleck: "",
+    bar: "",
 };
 
 // Virtually a class (?correct title?), class operates as a class cache with a conf basis override
@@ -74,6 +76,8 @@ const O_Generator: Ops_Gen = (() => {
         // no start newline space
         trim_ws_after_newline: /\n[\s\t]*/,
     };
+    // let jig: any;
+    let d: number;
 
     // Instantiated once/only-first new Ops(...) call
     class _Ops_Gen_Inner extends Base {
@@ -157,7 +161,7 @@ const O_Generator: Ops_Gen = (() => {
                     pre: this.prefix({
                         label,
                         color: conf_colors["label"],
-                        fleck: conf_colors["fleck"],
+                        bar: conf_colors["bar"],
                         main_color: conf_colors["default"],
                     }),
                 }),
@@ -167,7 +171,7 @@ const O_Generator: Ops_Gen = (() => {
                     pre: this.prefix({
                         label,
                         color: conf_colors["label"],
-                        fleck: conf_colors["fleck"],
+                        bar: conf_colors["bar"],
                         main_color: conf_colors["accent"],
                     }),
                 }),
@@ -177,7 +181,7 @@ const O_Generator: Ops_Gen = (() => {
                     pre: this.prefix({
                         label,
                         color: conf_colors["label"],
-                        fleck: conf_colors["fleck"],
+                        bar: conf_colors["bar"],
                         main_color: conf_colors["forky"],
                     }),
                 }),
@@ -187,7 +191,7 @@ const O_Generator: Ops_Gen = (() => {
                     pre: this.prefix({
                         label,
                         color: conf_colors["label"],
-                        fleck: conf_colors["fleck"],
+                        bar: conf_colors["bar"],
                         main_color: conf_colors["errata"],
                     }),
                 }),
@@ -206,7 +210,7 @@ const O_Generator: Ops_Gen = (() => {
                 // if_in_get_index: this.if_in_get_index,
             };
         }
-        format: Arg_Formatter = (...args: [any]) => {
+        format: Arg_Formatter = (...args: any[]) => {
             const is_num = (arg: any) => typeof arg === "number" || typeof arg === "bigint";
             const is_a_format_o = (arg: any) => Array.isArray(arg) || typeof arg === "object";
             const arg_f = (arg: any) => {
@@ -232,14 +236,15 @@ const O_Generator: Ops_Gen = (() => {
         ) => {
             const { debug = this.debug, pre } = scaf_args;
             const post = this.post({ is_defi_IO: pre });
-            return (min_level: number, ...args: [any]) => {
-                if (min_level > debug) return;
+            return (...args: any[]) => {
+                typeof args[0] === "number" ? ([d, ...args] = args) : (d = def);
+                if (d > debug) return;
                 // can't use o.log at beginning of constructors
                 if (debug > 10) console.log(`_l local called w/type: ${typeof args[0]}`);
                 if (args.length > 0) {
                     pre?.();
                     // WIP flags for work area notation - console.log(get_flag(dis));
-                    console.log(this.format(...args));
+                    console.log(this.format.apply(null, args));
                     post?.();
                 }
             };
@@ -274,26 +279,27 @@ const O_Generator: Ops_Gen = (() => {
         log_errata_industrial: Log_Factory = this.boom({
             color_target: "errata",
         }); // kind
-        prefix: LabelWrap = ({ label = "", color, fleck, main_color }: LabelWrapArgs) => {
+        prefix: LabelWrap = ({ label = "", color, bar, main_color }: LabelWrapArgs) => {
             let _color;
             if (!label.length) {
                 if (main_color?.length) return () => this.stdout(main_color);
                 // else should already be NO color
                 return undefined;
             }
-            let pre = `<${label}>`;
+            // let pre = `<${label}>`;
+            let pre = label;
             if (color?.length) {
                 _color = color;
                 pre = color?.length ? color + pre : pre;
             }
-            pre += " ";
-            // color fleck="" -> also no fleck
-            if (fleck?.length) {
-                if (fleck !== _color) {
-                    pre += fleck;
+            pre += "| ";
+            // color bar="" -> also no fleck
+            if (bar?.length) {
+                if (bar !== _color) {
+                    pre += bar;
                 }
-                _color = fleck;
-                pre += "- ";
+                _color = bar;
+                // pre += "- ";
             }
 
             if (_color !== main_color) {
@@ -368,7 +374,7 @@ type I_O = () => void | undefined;
 type Std_IO = (s: string) => void;
 type Arg_Formatter = (args: any[]) => string;
 type LabelWrap = (args: LabelWrapArgs) => I_O | undefined;
-type LabelWrapArgs = { label?: string; color?: string; fleck?: string; main_color: string };
+type LabelWrapArgs = { label?: string; color?: string; bar?: string; main_color: string };
 type PostWrap = (args: { is_defi_IO?: I_O }) => I_O | undefined;
 // simple internal helper to distinguish varieties of same str type
 interface Escaped_Color_Targets extends Color_Targets {}

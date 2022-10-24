@@ -20,5 +20,5 @@ export interface O extends Base_I {
 }
 // node:timers/setTimeout...now a simple polyfill for the browser
 export type Wait = (n: number) => Promise<void>;
-export type Log = (min_level: number, ...args: any) => void;
+export type Log = (...args: any[]) => void;
 export type str = string;

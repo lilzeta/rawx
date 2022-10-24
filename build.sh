@@ -54,10 +54,10 @@ stage() {
 }
 stage "$src"
 # echo "${ts_list[@]}"
-for file in ${ts_list[@]}; do
-    perl -i.bkp -pe 's/((?:log)|(?:accent)|(?:forky)|(?:errata))(\([^,]+,\s)/$1$2"L:$.", /' $file
+for a_path in ${ts_list[@]}; do
+    perl "./src/scripts/log_labeller.pl" -f "$a_path"
+    # f="$(basename -s .ts $a_path)"
+    # f="$(printf %-12s $f)"
 done
-# perl -i.bkp -pe 's/((?:log)|(?:accent)|(?:forky)|(?:errata))(\([^,]+,\s)/$1$2"L:$.", /' ${ts_list[@]}
-# tsc -p "$tar/tsconfig.json"
-npm run tsc
+npm run tsc || exit 1
 npm run re_i

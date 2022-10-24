@@ -54,7 +54,7 @@ const watch_creator: Watch_Creator = (args: Watch_Args) => {
         constructor(args: Watch_Args) {
             let { paths, name, ...opts } = args;
             let label: str | undefined;
-            if (name?.length) label = `${name}|Watcher`;
+            if (name?.length) label = `${args.name.padEnd(6)}`;
             else label = "";
             if (args.debug !== undefined) {
                 this.debug = args.debug;
@@ -145,8 +145,7 @@ const watch_creator: Watch_Creator = (args: Watch_Args) => {
                 // Complex
                 if (this.trigger_indices) {
                     // TODO something more stable
-                    o.accent(1, `this.trigger_indices`);
-                    o.accent(1, this.trigger_indices);
+                    o.accent("this.trigger_indices", this.trigger_indices);
                     trigger_index = this.trigger_indices[n][i];
                 }
                 // not Complex

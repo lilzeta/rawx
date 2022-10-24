@@ -62,7 +62,7 @@ const server_creator: Server_Creator = (args: Server_Args) => {
             // prepare first proc, if no .on_watch also run
             this.prerun_checks({ chain_id: this._tubed }).catch();
             // TODO test if we need .catch();
-            o.accent(7, "test", `constructor completed`);
+            o.accent(7, "constructor completed");
         }
         // TypeError: this.set_sigterm is not a function (Typescript bug?)
         // on_constructed = (args: s) => {
@@ -83,7 +83,7 @@ const server_creator: Server_Creator = (args: Server_Args) => {
             let proc = proc_ as _P._Proc;
             if (!proc) {
                 if (!this._step_procs?.length && !this.has_trigger()) {
-                    o.forky(2, `no procs & no trigger_index -> die()`);
+                    o.forky(`no procs & no trigger_index -> die()`);
                     this.die();
                 }
                 return;
@@ -132,7 +132,8 @@ const server_creator: Server_Creator = (args: Server_Args) => {
             o.accent(9, trigger_file_path);
             const { chain_exit, _sidecar } = proc;
             const { run_if_file_dne, goto_on_file_exists } = proc;
-            const silence = proc.silence === "all" ? () => 999 : undefined;
+            // const silence = proc.silence === "all" ? () => 999 : undefined;
+            const log_level = proc.silence === "all" ? 999 : 2;
             try {
                 o.forky(chain_exit ? 8 : 999, `~ TIC ~`); // KICK...
                 let cool;
@@ -143,14 +144,14 @@ const server_creator: Server_Creator = (args: Server_Args) => {
                         const f_exists = await exists(run_if_file_dne);
                         if (proc.silence !== "all") {
                             o.forky(
-                                silence?.() || 2,
+                                log_level,
                                 `<child-process/> File Exists - ${f_exists} -${_sidecar.label}`,
                             );
                         }
                         if (o.defi(goto_on_file_exists)) {
                             this.set_range(goto_on_file_exists);
                             o.forky(
-                                silence?.() || 2,
+                                log_level,
                                 `<child-process/> Setting Next Proc: ${goto_on_file_exists}`,
                             );
                             // assume goto_on_file_exists means chain_next @goto
@@ -164,14 +165,11 @@ const server_creator: Server_Creator = (args: Server_Args) => {
                             return;
                         }
                     } catch (err) {
-                        o.forky(silence?.() || 9, `File Exist threw - ${_sidecar.label}`);
+                        o.forky(log_level, `File Exist threw - ${_sidecar.label}`);
                     }
-                    o.forky(
-                        silence?.() || 2,
-                        `<child-process>  _// start File DNE Exist - ${_sidecar.label}`,
-                    );
+                    o.forky(log_level, `proc  _// start File DNE Exist - ${_sidecar.label}`);
                 } else {
-                    o.forky(silence?.() || 2, `<child-process> _// start - ${_sidecar.label}`);
+                    o.forky(log_level, `proc _// start - ${_sidecar.label}`);
                 }
 
                 cool = this.run_wrapper({ proc, trigger_file_path });
@@ -227,15 +225,12 @@ const server_creator: Server_Creator = (args: Server_Args) => {
                 if (this.has_trigger()) {
                     this.kill_all().catch(); // but for now, force all processes to be catch responsible
                     o.errata(
-                        silence?.() || 1,
-                        `Server | uncaught error -> chain will restart to trigger_index: ${err}`,
+                        log_level,
+                        `uncaught error -> chain will restart to trigger_index: ${err}`,
                     );
                     await o.wait(this.kill_delay);
                 } else {
-                    o.errata(
-                        1,
-                        `Server | uncaught throw -> no trigger_index, exiting: ${err}`,
-                    );
+                    o.errata(`uncaught throw -> no trigger_index, exiting: ${err}`);
                     this.die();
                 }
             }
@@ -280,13 +275,13 @@ const server_creator: Server_Creator = (args: Server_Args) => {
             return new Promise<number>(async (res) => {
                 const { type, command, options } = p_args;
                 let sub_args = p_args.args;
-                const juke_d: number = _sidecar.silence === "all" ? 999 : 8;
+                const log_lev: number = _sidecar.silence === "all" ? 999 : 8;
                 const rep_args: Array<P.P_Args> = p_args.args as Array<P.P_Args>;
                 let repeater_chain = p_args.repeater_chain;
                 const subproc = (args: ReadonlyArray<string>): ChildProcess | undefined => {
                     if (type === "execFile") {
                         o.log(
-                            juke_d,
+                            log_lev,
                             `execFile ${command} ${o.pretty(sub_args)} ${o.pretty(options)}`,
                         );
                         return execFile(p_args.command, args, options);
@@ -294,7 +289,7 @@ const server_creator: Server_Creator = (args: Server_Args) => {
                     if (type === "spawn") {
                         const p_a: _P._Run_Proc_Conf = p_args as _P._Run_Proc_Conf;
                         o.log(
-                            juke_d,
+                            log_lev,
                             `spawn ${command} ${o.pretty(sub_args)} ${o.pretty(p_a.options)}`,
                         );
                         return spawn(command, args, p_a.options);
@@ -314,14 +309,13 @@ const server_creator: Server_Creator = (args: Server_Args) => {
                     c_proc?.on("exit", async (code) => {
                         if (code) {
                             if (repeater_chain === "success") {
-                                o.errata(1, `repeater chain exitted w/err: ${code}, halting.`);
+                                o.errata(`repeater chain exited w/err: ${code}, halting.`);
                                 // Is this correct though?
                                 res(code);
                                 return;
                             } else {
                                 o.errata(
-                                    1,
-                                    `repeater chain exitted w/err: ${code}, w/no repeater_chain: "success" => next`,
+                                    `repeater chain exited w/err: ${code}, w/no repeater_chain: "success" => next`,
                                 );
                             }
                         }
@@ -370,10 +364,7 @@ const server_creator: Server_Creator = (args: Server_Args) => {
                 }
                 if (type === "spawn") {
                     const p_a: _P._Run_Proc_Conf = p_args as _P._Run_Proc_Conf;
-                    o.log(
-                        8,
-                        `spawn ${command} ${o.pretty(sub_args)} ${o.pretty(p_a.options)}`,
-                    );
+                    o.log(8, `spawn ${command} `, sub_args, p_a.options);
                     return spawn(command, sub_args, p_a.options);
                 }
             }
@@ -406,7 +397,7 @@ const server_creator: Server_Creator = (args: Server_Args) => {
         call_exec_fn = ({ proc, trigger_file_path }: H._Hook_Exec_Args): Promise<number> => {
             return new Promise((res, rej) => {
                 if (!trigger_file_path) {
-                    o.errata(2, `exec_fn is not built to run without on_watch set`);
+                    o.errata(`exec_fn is not built to run without on_watch set`);
                     rej();
                 }
                 const fn: H.Exec_Hook_Args = proc.fn as H.Exec_Hook_Args;
@@ -463,7 +454,6 @@ const server_creator: Server_Creator = (args: Server_Args) => {
                 await this.prerun_checks({ chain_id, sub_proc: true });
             } else {
                 o.errata(
-                    2,
                     `proc: ${proc._sidecar.label} did not succeed with code: ${code}, execution stopped`,
                 );
             }
@@ -573,7 +563,7 @@ const server_creator: Server_Creator = (args: Server_Args) => {
 
         // terminate server, sync
         die = () => {
-            o.forky(6, `Server.die() called, terminating any running`);
+            o.forky(6, "Server.die() called, terminating any running");
             this._tubed = __id();
             // this._tube_lock = true;
             this.procs = null;
@@ -583,14 +573,11 @@ const server_creator: Server_Creator = (args: Server_Args) => {
                 this._watch?.watches_clear();
                 this.watch = null;
             } catch (err) {
-                o.errata(1, `Server.die() | this.watchers?.watches_clear(); | THROWN ERROR `);
+                o.errata(`Server.die() watches_clear() Error | THROWN: ${err} `);
             }
-            o.forky(1, `Server.die() | Kill done, watches_clear - Exit`);
+            o.forky("Server.die() | Kill done, watches_clear -> Exit");
             // TODO test removing POST_KILL_DELAY uses (std_out courtesy for kill())
             setTimeout(() => {
-                // WIP line# flags
-                // o._l(1, `Server.die() [__L], shutting down complete -> exit`);
-                o.log(1, `Server.die(), shutting down complete -> exit`);
                 process.exit();
             }, this.kill_delay);
         };
@@ -602,7 +589,7 @@ const server_creator: Server_Creator = (args: Server_Args) => {
             const dis = this;
             process.on("SIGINT", function () {
                 dis.die();
-                log(1, `[L:451], shutting down complete -> exit`);
+                log("shutting down complete -> exit");
                 process.exit();
             });
         };

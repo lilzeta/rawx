@@ -1,5 +1,4 @@
 // module.exports = Proc_Util;
-import { ChildProcess } from "child_process";
 import { O, str } from "../ops/index";
 import { Basic_Proc_Stdio, Setup_Proc_Util_Args } from "./args_types";
 import { Proc_Util_C, Proc_Util_I } from "./export_types";
@@ -77,7 +76,7 @@ const proc_util_creator: Proc_Util_Creator = (args: Inherit) => {
                     forky_sub_pass_through = this.prefix({
                         // label: o.label,
                         color: colors["label"],
-                        fleck: colors["fleck"],
+                        bar: colors["bar"],
                         main_color: colors["forky"],
                     });
                 let forky_post = this.post({ is_defi_IO: forky_sub_pass_through });
@@ -85,7 +84,7 @@ const proc_util_creator: Proc_Util_Creator = (args: Inherit) => {
                     // With named label
                     if (o.debug) {
                         forky_sub_pass_through?.();
-                        o.forky(2, `</child-process> \\\\_ closed w/code: ${code}`);
+                        o.forky(`proc \\\\_ closed w/code: ${code}`);
                         forky_post?.();
                     }
                     on_close(sub_proc.pid);
@@ -109,7 +108,7 @@ const proc_util_creator: Proc_Util_Creator = (args: Inherit) => {
             });
         };
 
-        prefix: LabelWrap = ({ label = "", color, fleck, main_color }: LabelWrapArgs) => {
+        prefix: LabelWrap = ({ label = "", color, bar, main_color }: LabelWrapArgs) => {
             let _color;
             if (!label.length) {
                 if (main_color?.length) return () => this.stdout(main_color);
@@ -123,11 +122,11 @@ const proc_util_creator: Proc_Util_Creator = (args: Inherit) => {
             }
             pre += " ";
             // color fleck="" -> also no fleck
-            if (fleck?.length) {
-                if (fleck !== _color) {
-                    pre += fleck;
+            if (bar?.length) {
+                if (bar !== _color) {
+                    pre += bar;
                 }
-                _color = fleck;
+                _color = bar;
                 pre += "- ";
             }
 
@@ -154,7 +153,7 @@ type IO = () => void | undefined;
 type Std_IO = (s: str) => void;
 // type Arg_Formatter = (args: any[]) => str;
 type LabelWrap = (args: LabelWrapArgs) => IO | undefined;
-type LabelWrapArgs = { label?: str; color?: str; fleck?: str; main_color: str };
+type LabelWrapArgs = { label?: str; color?: str; bar?: str; main_color: str };
 type PostWrap = (args: { is_defi_IO?: IO }) => IO | undefined;
 // // The following 4 may move out of this
 // prefix: LabelWrap; // subproc ops...

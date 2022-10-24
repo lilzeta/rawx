@@ -206,15 +206,21 @@ const files_tree: Files_Tree_C = (() => {
             sq.path_hasher = Object.assign(sq.path_hasher, [hash]);
             const stat_info = await stat(sq.pwd);
             if (stat_info.isDirectory()) {
-                o.accent(8, `this._reg?.include_dir?.(sq.pwd):`);
-                o.accent(8, this._reg?.include_dir?.(sq.pwd));
-                o.accent(8, `this._reg?.exclude_dir?.(sq.pwd):`);
-                o.accent(8, this._reg?.exclude_dir?.(sq.pwd));
+                o.accent(
+                    8,
+                    `this._reg?.include_dir?.(sq.pwd): `,
+                    this._reg?.include_dir?.(sq.pwd),
+                );
+                o.accent(
+                    8,
+                    `this._reg?.exclude_dir?.(sq.pwd): `,
+                    this._reg?.exclude_dir?.(sq.pwd),
+                );
                 if (this._reg?.include_dir?.(sq.pwd)) return [];
                 if (this._reg?.exclude_dir?.(sq.pwd)) return [];
                 if (sq.depth > this.max_depth) {
                     if (ABYSS_DEBUG) {
-                        o.log(2, `the members of this deep dir have been ignored: ${sq.pwd}`);
+                        o.log(`the members of this deep dir have been ignored: ${sq.pwd}`);
                     }
                     return [];
                 }

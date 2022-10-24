@@ -28,7 +28,7 @@ const no_colors: Color_Targets = {
     accent: "",
     forky: "",
     errata: "",
-    fleck: "",
+    bar: "",
 };
 module.exports = {
     some_colors,

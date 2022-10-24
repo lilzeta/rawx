@@ -16,8 +16,8 @@ export interface Color_Targets {
     // Start/Close/Proc specific event
     forky: str;
     errata: str;
-    // The `-` between label & log
-    fleck: str; // "" for no fleck
+    // The `|` between label & log
+    bar: str; // "" for no fleck
 }
 export type Color_Target = keyof Color_Targets;
 

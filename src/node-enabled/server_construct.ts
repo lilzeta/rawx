@@ -106,7 +106,8 @@ const server_constructor_creator: Server_Constructor_Creator = (
             }
             if (args.name?.length) {
                 this.name = args.name;
-                this.label = `${args.name}|Server`;
+                // TODO dynamic padding
+                this.label = `${args.name.padEnd(6)}`;
             }
             // First global call sets the default cache/base
             // this sets server args as a default basis
@@ -167,8 +168,7 @@ const server_constructor_creator: Server_Constructor_Creator = (
         setup_watch() {
             const watch_args = this.watch;
             const parent_colors = this.colors;
-            o.log(7, `setup_watch - watch.complex: `);
-            o.log(7, watch_args.complex);
+            o.log(7, "setup_watch - watch.complex:", watch_args.complex);
             if (watch_args.complex) {
                 this.setup_multi_watch();
                 return;
@@ -240,9 +240,7 @@ const server_constructor_creator: Server_Constructor_Creator = (
             proc = proc as P.A_Proc_Arg;
             let label: str;
             if (!proc.type) {
-                const err = `Server [142] - type && command missing, Fatal proc: ${o.pretty(
-                    proc,
-                )}`;
+                const err = `type && command missing, Fatal proc: ${o.pretty(proc)}`;
                 throw new Error(err);
             }
 
@@ -252,17 +250,13 @@ const server_constructor_creator: Server_Constructor_Creator = (
                 label = o.truncate(label, Truncate_Label);
                 // shouldn't get a warn if type-safe? - fatal
                 if (!fn_proc.fn) {
-                    const err = `Server [142] - fn missing from fn proc, Fatal. proc: ${o.pretty(
-                        proc,
-                    )}`;
+                    const err = `fn missing from fn proc, Fatal. proc: ${o.pretty(proc)}`;
                     throw new Error(err);
                 }
             } else {
                 let proc_ = proc as P.Proc_Arg_Exec | P.Proc_Arg_Def;
                 if (!proc_.command) {
-                    const err = `Server [142] - command missing from proc, Fatal. proc: ${o.pretty(
-                        proc,
-                    )}`;
+                    const err = `command missing from proc, Fatal. proc: ${o.pretty(proc)}`;
                     throw new Error(err);
                 }
                 label = proc_.command;
