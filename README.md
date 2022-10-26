@@ -1,9 +1,32 @@
 ## Rawx - Server Daemon
+  
+0.4.beta or some such.  
+Fixed an abundance of win kill bugs, realized how far osx & linux might be. Termination wasn't working as well as I thought, switched to taskkill.  
+  
+Look at this nugget, similar to a thing found in the node:child-process docs.  
+```
+const os = require("os");
+const util = require("util");
+const { exec } = require("child_process");
+const p_exec = util.promisify(exec);
+const username = os.userInfo().username;
+let sys_user = `"USERNAME eq ${os.hostname()}\\${username}"`;
+let spoon_ex = `tasklist /nh /fo csv /fi ${sys_user}`;
+const { stdout, stderr } = await p_exec(spoon_ex);
+```
+That is what you probably think it is.  
+It's cmdline style promises for node.js!  
+  
+Finally got python tooling working in win, and now terming properly. Vastly underestimated native issues in specific veins. No 1.x.y or working MacOS for perhaps a long time. A dev to deal with osx native issues would be much help, I'll work on linux issues first hoping for that outcome.  Need a break, pushing WIP 0.4 because a ton irritating things to fix work now, but I doubt I'll publish for a bit to document breaking changes & update examples. Probably no more 0.3 patches. Anyway here's more WIP.  
+
+```
+...
+```
 Typed & opinionated node.js module for running child-processes & hooks  
 Server class is a process management class instantiated using JSON  
 Watch class is a file watch that triggers on file changes (or saves)  
 Ops is a class that conjoins a single node.js files' logs and configs  
-These all have configs that are deeply explicated by instantiating json.  
+These all have configs that are deeply explicated by instantiating json. 
   
 0.3.2 fixed an assortment of class scope leaks & added some support for setting no color easily.  
 Use `{..., colors: "no"}` to use no colors on the layer or use with a new Ops(...).  

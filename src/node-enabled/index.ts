@@ -6,12 +6,13 @@ import { Files_Tree_C, Files_Complex_C } from "./files_tree/index";
 import { Color_Targets, Ops_Gen, Ops_Module, Some_Colors } from "../ops/index";
 import { Base_C, Util_Module } from "../util/index";
 import { Proc_Util_C, Server_Class } from "./export_types";
+import { DEBUG_FTR } from "./server";
 
 // value exports
 export const Server: Server_Class = require("./server.js");
 export const Watch: Watch_C = require("./watch.js");
 
-export const Proc_Util: Proc_Util_C = require("./proc_util.js");
+export const Proc_Util: Proc_Util_C = require("./proc_u.js");
 export const Files_Tree: Files_Tree_C = require("./files_tree/files_tree.js");
 export const Files_Complex: Files_Complex_C = require("./files_tree/files_complex.js");
 
@@ -54,6 +55,8 @@ module.exports = {
     Util,
     Base,
     default: Server,
+
+    DEBUG_FTR,
 };
 
 // import type { P, H, _P } from "./proc_type_defs";

@@ -8,10 +8,11 @@
 const { v4: __id } = require("uuid");
 const { format } = require("util");
 import { ChildProcess } from "child_process";
+
 // internal modules/classes
 const Watch: Watch_C = require("./watch");
 const ops_mod: Ops_Module = require("../ops/index");
-const Proc_Util: Proc_Util_C = require("./proc_util");
+const Proc_Util: Proc_Util_C = require("./proc_u");
 // Typescript json value import tsconfig:{"resolveJsonModule": true}
 // import * as server_schema from "../util/validation/schema/server_schema.json";
 
@@ -79,9 +80,12 @@ const server_constructor_creator: Server_Constructor_Creator = (
 
         // uuid of the most recent chain
         _tubed?: str = undefined;
-        _running?: Array<ChildProcess> = [];
-        _live_functions: Record<str, str> = {};
+        _running: { [p: number]: any } = {};
+        // Currently we use pid at start as parent of whatever pid is in the _root_pids to SIGINT
+        _proc_manifest?: { [pid: str]: ChildProcess } = {};
+        _root_pids: Array<str> = [];
 
+        _live_functions: Record<str, str>;
         // out?: str;
         _validator: Arg_Validator_I;
         constructor(args: Server_Args) {

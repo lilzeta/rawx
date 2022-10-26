@@ -10,16 +10,22 @@ const { spawn, fork, exec, execFile } = require("child_process");
 const { exists } = require("fs");
 const t_kill = require("tree-kill");
 const { v4: __id } = require("uuid");
+
 import { ChildProcess } from "child_process";
+
 // Internal Modules
 import { O, Ops_Gen } from "../ops/index";
 import { Server_Args } from "./args_types";
 import { Server_I, str } from "./export_types";
 import { P, H, _P } from "./proc_type_defs";
 const Ops: Ops_Gen = require("../ops/ops");
+export enum DEBUG_FTR {
+    KILL = 13,
+}
+const max_term_delay = 5000;
 
-import { Server_Constructor_C } from "./server_construct";
-const Server_Constructor: Server_Constructor_C = require("./server_construct");
+import { Server_Constructor_C } from "./server_c";
+const Server_Constructor: Server_Constructor_C = require("./server_c");
 /**
  * Note all class vars moved to Server_Construct
  * this file contains runtime methods and is alive till SigTerm or .die()
@@ -136,7 +142,7 @@ const server_creator: Server_Creator = (args: Server_Args) => {
             const log_level = proc.silence === "all" ? 999 : 2;
             try {
                 o.forky(chain_exit ? 8 : 999, `~ TIC ~`); // KICK...
-                let cool;
+                let cool: _Run_Wrapper_Return;
                 // TODO this case has some dupe stuff needs fn/promise
                 if (run_if_file_dne?.length) {
                     // run_if_file_dne is a filename if it exists
@@ -181,33 +187,50 @@ const server_creator: Server_Creator = (args: Server_Args) => {
 
                 if (cool) {
                     // If run_process returned a process, TODO typesafe
-                    if ((cool as ChildProcess).pid) {
-                        cool = cool as ChildProcess;
-                        this._running.push(cool);
-                        this._proc_util.setup_subproc({
-                            sub_proc: cool,
-                            label: _sidecar.label,
-                            silence: _sidecar.silence,
-                            on_close: (pid: number) => this.flush_exits(pid),
-                        });
+                    if (cool.p) {
+                        const r_proc = cool.p;
+                        const r_pid = r_proc.pid;
+                        if (!r_pid) {
+                            this.terminate_check();
+                            o.forky(log_level, `proc did not start - ${_sidecar.label}`);
+                        } else {
+                            const s_pid = "" + r_pid;
+                            this._proc_manifest[s_pid] = r_proc;
+                            this._root_pids.push(s_pid);
+                            this._proc_util.setup_subproc({
+                                sub_proc: r_proc,
+                                label: _sidecar.label,
+                                silence: _sidecar.silence,
+                                on_close: () => this.cleanup(s_pid),
+                            });
+                        }
                         if (chain_exit) {
-                            cool.once("exit", async (code: number) => {
-                                this.terminate_check();
+                            if (r_pid) {
+                                r_proc.once("exit", async (code: number) => {
+                                    this.terminate_check();
+                                    this.chain_next({
+                                        code,
+                                        proc,
+                                        chain_option: chain_exit,
+                                        chain_id,
+                                    });
+                                });
+                            } else {
                                 this.chain_next({
-                                    code,
+                                    code: 1,
                                     proc,
                                     chain_option: chain_exit,
                                     chain_id,
                                 });
-                            });
+                            }
                         } else {
-                            cool.once("exit", async (_) => {
+                            r_proc.once("exit", async (_) => {
                                 this.terminate_check();
                             });
                         }
-                    } else {
-                        cool = cool as Promise<number>;
-                        cool.then((code) => {
+                    } else if (cool.f || cool.r) {
+                        const done = cool.f || (cool.r as Promise<number>);
+                        done.then((code) => {
                             this.terminate_check();
                             this.chain_next({
                                 code,
@@ -216,7 +239,8 @@ const server_creator: Server_Creator = (args: Server_Args) => {
                                 chain_id,
                             });
                         }).catch((err: Error) => {
-                            o.errata(1, `Hook fn through an error: ${err}`);
+                            const title = cool.f ? "Hook fn" : "Repeater";
+                            o.errata(1, `${title} threw an error: ${err}`);
                         });
                     }
                 }
@@ -241,29 +265,33 @@ const server_creator: Server_Creator = (args: Server_Args) => {
             proc,
             trigger_file_path, // undefined only when chained from constructor
             sub_proc = true,
-        }: _Run_Wrapper_Args): ChildProcess | Promise<number> | undefined => {
+        }: _Run_Wrapper_Args): _Run_Wrapper_Return => {
             const { type } = proc;
             if (this._proc_util.is_fn_proc(proc)) {
                 const _proc = proc as H._Hook_Fn;
                 if (type === "fn") {
-                    return this.call_fn({ proc: _proc }).catch();
+                    return { f: this.call_fn({ proc: _proc }).catch() };
                 } else if (type === "exec_fn") {
-                    return this.call_exec_fn({
-                        proc: _proc,
-                        trigger_file_path,
-                    }).catch();
+                    return {
+                        f: this.call_exec_fn({
+                            proc: _proc,
+                            trigger_file_path,
+                        }).catch(),
+                    };
                 }
                 return;
             } else {
                 const _proc = proc as _P._Proc_W_Conf;
                 if (this._proc_util.is_repeater_proc(_proc)) {
-                    return this.run_repeater_proc(
-                        _proc.construct as _P._Run_Proc_Conf,
-                        _proc._sidecar,
-                        sub_proc,
-                    );
+                    return {
+                        r: this.run_repeater_proc(
+                            _proc.construct as _P._Run_Proc_Conf,
+                            _proc._sidecar,
+                            sub_proc,
+                        ),
+                    };
                 }
-                return this.run_node_proc(_proc.construct, _proc._sidecar, sub_proc);
+                return { p: this.run_node_proc(_proc.construct, _proc._sidecar, sub_proc) };
             }
         };
 
@@ -404,8 +432,8 @@ const server_creator: Server_Creator = (args: Server_Args) => {
                 const id = __id();
                 Object.assign(this._live_functions, { id });
                 // callback/reject
-                const on_close = (pid: number) => {
-                    this.flush_exits(pid);
+                const sub_done = (pid: str) => () => {
+                    this.cleanup(pid);
                     // WIP
                     if (o.defi(this._live_functions[id])) {
                         delete this._live_functions[id];
@@ -420,7 +448,7 @@ const server_creator: Server_Creator = (args: Server_Args) => {
                             sub_proc: new_child_process,
                             label,
                             silence: proc.silence,
-                            on_close,
+                            on_close: sub_done(new_child_process.pid),
                         });
                         o.accent(5, `Light exec callback setup: ${label}`);
                     },
@@ -459,23 +487,31 @@ const server_creator: Server_Creator = (args: Server_Args) => {
             }
         };
 
-        // TODO better clearing/upkeep/proc checks
-        flush_exits = (pid: number) => {
-            // Todo true necessary?
-            let remove_i: { [k: number]: any } = {};
-            for (let i = 0; i < this._running.length; i++) {
-                if (this._running[i].pid === pid) Object.assign(remove_i, { i: true });
-                else if (this._running[i].killed) Object.assign(remove_i, { i: true });
+        // no terminations
+        cleanup = (pid: str) => {
+            o.accent(9, `cleanup pid:${pid}`);
+            const str_pid = "" + pid;
+            let to_remove: { [k: string]: true } = {};
+            for (const k of Object.keys(this._proc_manifest)) {
+                o.accent(9, `cleanup check k:${k}`);
+                // cause thats what it is...
+                if (k == pid) {
+                    o.accent(9, `cleanup match e_pid:${str_pid}`);
+                    to_remove[k] = true;
+                    delete this._proc_manifest[k];
+                } else if (this._proc_manifest[k].killed) {
+                    to_remove[k] = true;
+                    delete this._proc_manifest[k];
+                }
             }
-            this._running = this._running.reduce(
-                (new_r: Array<ChildProcess>, dis: ChildProcess, i: number) => {
-                    !remove_i[i] && new_r.push(dis);
-                    return new_r;
-                },
-                [],
-            );
+            o.accent(9, `cleanup remove arr:`, to_remove);
+            this._root_pids = this._root_pids.reduce((new_pids, a_pid: str) => {
+                if (!to_remove[a_pid]) new_pids.push(a_pid);
+                else o.accent(9, `cleanup purged pid:${a_pid}`);
+                return new_pids;
+            }, []);
             this.terminate_check();
-            o.accent(9, `flush_clean_exits is completed. `);
+            o.accent(9, `cleanup on exit is completed. r:${this._root_pids.length}`);
         };
 
         // Not sure if what mixture of clever and dumb this may get us into, when trued
@@ -494,7 +530,7 @@ const server_creator: Server_Creator = (args: Server_Args) => {
                     sub_proc,
                     label: proc_._sidecar.label,
                     silence: proc_._sidecar.silence,
-                    on_close: (pid: number) => this.flush_exits(pid),
+                    on_close: () => this.cleanup("" + sub_proc.pid),
                 });
                 // this is yet another _conc
                 if (proc._conc) {
@@ -505,7 +541,9 @@ const server_creator: Server_Creator = (args: Server_Args) => {
 
         terminate_check = () => {
             if (!this.has_trigger() && !this._step_procs?.length) {
-                this.die();
+                if (!this._root_pids.length) {
+                    this.die();
+                }
             }
         };
 
@@ -536,61 +574,58 @@ const server_creator: Server_Creator = (args: Server_Args) => {
             });
         };
 
-        kill_all = async (): Promise<void[]> => {
-            const inner_promises: Array<Promise<void>> = [];
-            const this_running = this._running;
-            const run_c = this_running.length;
+        kill_all = async () => {
             this._live_functions = {};
-            if (run_c) {
-                for (let i = 0; i < run_c; i++) {
-                    // if (!this_running[i].killed) {
-                    inner_promises.push(
-                        new Promise((res_, _rej) => {
-                            // TODO find a good way to skip dead
-                            t_kill(this_running[i].pid, "SIGKILL", (err: any) => {
-                                // intentionally set above 10
-                                o.errata(11, err); // so noisy
-                                res_(); // no rejecting here on err!
-                            });
-                        }),
-                    );
-                    // }
-                    this._running = [];
-                }
-            }
-            return Promise.all(inner_promises);
-        };
+            // TODO how can a proc be dead if not closed? (hygiene imp.)
+            // const r_pids = this._root_pids.map((p) => p.pid);
 
-        // terminate server, sync
-        die = () => {
-            o.forky(6, "Server.die() called, terminating any running");
-            this._tubed = __id();
-            // this._tube_lock = true;
-            this.procs = null;
-            this.kill_all().catch(); // No await, because no waiting to complete
-            try {
-                // if trap didn't clear already
-                this._watch?.watches_clear();
-                this.watch = null;
-            } catch (err) {
-                o.errata(`Server.die() watches_clear() Error | THROWN: ${err} `);
-            }
-            o.forky("Server.die() | Kill done, watches_clear -> Exit");
-            // TODO test removing POST_KILL_DELAY uses (std_out courtesy for kill())
-            setTimeout(() => {
-                process.exit();
-            }, this.kill_delay);
+            // FYI kill_all is fairly noisy now,
+            // the logging is only on if set specifically to DEBUG_FTR.KILL
+            await this._proc_util.kill_all(this._root_pids, this._proc_manifest);
+            this._proc_manifest = {};
+            this._root_pids = [];
         };
         has_trigger = () => {
             return o.defi(this.trigger_index) || this.trigger_indices?.length;
         };
+
+        // terminate server, sync because stdout overflows otherwise
+        die = () => {
+            // let zombie = false;
+            o.forky(6, "Server.die() called, terminating any running");
+            this._tubed = __id();
+            // this._tube_lock = true;
+            this.procs = null;
+            // const kill_please =
+            const killer = this.kill_all().catch((err) => {
+                o.forky(`Server.die() | Kill all threw, err: ${err}`);
+            });
+            // const watch_clear =
+            this._watch
+                ?.watches_clear()
+                .catch((err) => {
+                    o.forky(`Server.die() | watches_clear() threw, err: ${err}`);
+                })
+                .finally(async () => {
+                    await killer;
+                    process.exit();
+                });
+            this.watch = null;
+            o.forky("Server.die() | Kill signals and watch clears initiated -> Exit");
+            // setTimeout(() => {
+            //     if (!zombie) {
+            //         o.log("shutting down hung -> exit anyway");
+            //         process.exit();
+            //     }
+            // }, max_term_delay);
+        };
         set_sigterm = () => {
-            let log = o.forky;
             const dis = this;
-            process.on("SIGINT", function () {
-                dis.die();
-                log("shutting down complete -> exit");
-                process.exit();
+            process.on("SIGINT", async () => {
+                await dis.die();
+            });
+            process.on("SIGTERM", async () => {
+                await dis.die();
             });
         };
     }
@@ -621,5 +656,13 @@ interface _Run_Wrapper_Args {
     // undefined only in first chain, starts from the constructor
     trigger_file_path?: str;
     sub_proc?: true;
+}
+interface _Run_Wrapper_Return {
+    // normal proc (.pid !defi for fail)
+    p?: ChildProcess;
+    // where 0=success, otherwise a virtual exit code
+    f?: Promise<number>;
+    // emulates exit code behavior, for repeater proc chains
+    r?: Promise<number>;
 }
 module.exports = Server;

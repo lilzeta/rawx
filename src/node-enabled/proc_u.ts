@@ -1,15 +1,40 @@
 // module.exports = Proc_Util;
+const os = require("node:os");
+const platform = os.platform();
+const t_kill = require("tree-kill");
+
+// import { ChildProcess } from "child_process";
 import { O, str } from "../ops/index";
 import { Basic_Proc_Stdio, Setup_Proc_Util_Args } from "./args_types";
 import { Proc_Util_C, Proc_Util_I } from "./export_types";
 import { P, _P } from "./proc_type_defs";
+import { DEBUG_FTR } from "./server";
 
 // const ESCAPE = "\x1B";
 // AKA SET no color escape code (in utf mode)
 const NO: str = `\x1B[0m`;
 interface Inherit {
     inherit_ops: O;
+    debug?: number;
 }
+type PID_HASH = { [pid: string]: true };
+
+// TODO CONF
+const max_kill_delay = 7000;
+
+let sys_user: str, spoon_ex: str;
+let p_exec: any;
+if (platform === "win32") {
+    const os = require("os");
+    const util = require("util");
+    const { exec } = require("child_process");
+    p_exec = util.promisify(exec);
+    const username = os.userInfo().username;
+    let sys_user = `"USERNAME eq ${os.hostname()}\\${username}"`;
+    spoon_ex = `tasklist /nh /fo csv /fi ${sys_user}`;
+}
+
+// const tk = "C:\\Windows\\SysWOW64\\taskkill.exe";
 
 // Proc_Util_Facade behaves as would exposed inner _Proc_Util
 class Proc_Util_Facade {
@@ -22,9 +47,32 @@ const Proc_Util = Proc_Util_Facade as Proc_Util_C;
 type Proc_Util_Creator = (args: Inherit) => Proc_Util_I;
 const proc_util_creator: Proc_Util_Creator = (args: Inherit) => {
     let o: O;
+
+    class Rejector_After {
+        completed: boolean = false;
+        rejector?: (reason?: any) => void = null;
+        public reject_await = async (rej: (reason?: any) => void) => {
+            this.rejector = rej;
+            await o.wait(max_kill_delay);
+            if (!this.completed && this.rejector) {
+                rej(); // TODO cleaner catching
+            }
+            this.completed = false;
+        };
+        public cancel = (): void => {
+            this.rejector = null;
+        };
+    }
+    const rejector = new Rejector_After();
+
     class _Proc_Util implements Proc_Util_I {
-        constructor(args: { inherit_ops: O }) {
-            o = args.inherit_ops;
+        // debug: number = DEBUG_FTR.KILL;
+        debug: number = 3;
+        // note above args passed below into new to/into c_args
+        constructor(c_args: Inherit) {
+            o = c_args.inherit_ops;
+            // TODO THIS CONF WIP!
+            if (o.defi(c_args.debug)) this.debug = c_args.debug;
         }
         is_fn_proc(proc: P.A_Proc_Arg | _P._Proc) {
             return proc.type === "exec_fn" || proc.type === "fn" || false;
@@ -38,6 +86,7 @@ const proc_util_creator: Proc_Util_Creator = (args: Inherit) => {
         // There isn't an elegant module for this, it's half Ops/half proc runtime
         // Used after each subproc starts, may move this to another class
         setup_subproc = ({ sub_proc, silence, on_close }: Setup_Proc_Util_Args) => {
+            o.log(`setup proc w/pid: ${sub_proc.pid}`);
             let jiggler;
             const colors = o.colors;
             // No <-> deco on normal stdout/stderr - color pass-through
@@ -87,7 +136,7 @@ const proc_util_creator: Proc_Util_Creator = (args: Inherit) => {
                         o.forky(`proc \\\\_ closed w/code: ${code}`);
                         forky_post?.();
                     }
-                    on_close(sub_proc.pid);
+                    on_close?.();
                 });
             }
         }; // kind
@@ -146,6 +195,77 @@ const proc_util_creator: Proc_Util_Creator = (args: Inherit) => {
         stdout: Std_IO = (some_str?: str) => {
             if (some_str?.length) process.stdout._write(some_str, "utf8", () => {});
         }; // kind
+
+        kill_all = async (running: str[]): Promise<void> => {
+            o.accent(`platform: ${platform}`);
+            if (platform === "win32") {
+                await this.kill_all_win(running);
+                return;
+            }
+            // TODO testing on OSX, Linux ...!!!
+            return new Promise((res, rej) => {
+                let run_c = running.length;
+                let d = this.debug;
+                if (run_c) {
+                    for (let i = 0; i < run_c; i++) {
+                        t_kill(running[i], "SIGKILL", (err: any) => {
+                            if (d === DEBUG_FTR.KILL) {
+                                o.errata(err); // so noisy
+                            }
+                            run_c--;
+                            if (!run_c) {
+                                rejector.cancel();
+                                res();
+                            }
+                        });
+                    }
+                }
+                rejector.reject_await(rej);
+            });
+        };
+        kill_all_win = async (running: str[]) => {
+            // object `hashish`
+            let k_: PID_HASH = {};
+            running.forEach((s: str) => {
+                k_[s] = true;
+            });
+            if (this.debug === DEBUG_FTR.KILL) {
+                o.log(`kill_all_win, k_: `, k_);
+            }
+            if (!running.length) {
+                return;
+            }
+
+            // win_user = "COMPUTERNAME\USER"
+            let kill: str[] = [];
+            const get_kill_list = async () => {
+                const { stdout, stderr } = await p_exec(spoon_ex);
+
+                let spoon_lines = stdout.split("\n");
+                for (let i = 0; i < spoon_lines.length - 1; i++) {
+                    // o.log(spoon_lines[i]);
+                    const some_pid = spoon_lines[i].split('","')[1];
+                    // found active self processes
+                    if (k_[some_pid]) {
+                        kill.push(some_pid);
+                    }
+                }
+            };
+            await get_kill_list();
+            const kill_kill = async () => {
+                const k_command = `taskkill ${[...kill.flatMap((pid) => ["/PID", pid])].join(
+                    " ",
+                )} /f /t`;
+                const { stdout, stderr } = await p_exec(k_command);
+                if (this.debug === DEBUG_FTR.KILL) {
+                    o.log(stdout);
+                    o.errata(stderr);
+                }
+            };
+            if (kill.length) {
+                await kill_kill();
+            }
+        };
     }
     return new _Proc_Util(args);
 };

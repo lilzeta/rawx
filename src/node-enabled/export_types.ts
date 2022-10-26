@@ -39,7 +39,9 @@ export interface Server_Constructor_I {
     _tubed?: str;
     // still incomplete feature
     // _tube_lock?: true;
-    _running?: Array<ChildProcess>;
+    _proc_manifest?: { [pid: str]: ChildProcess };
+    _root_pids: Array<str>;
+
     _live_functions: Record<str, str>;
 }
 // Watch_I = type after new Watch(...)
@@ -53,6 +55,7 @@ export interface Proc_Util_I {
     is_repeater_proc: (proc: _P._Proc_W_Conf) => boolean;
     setup_subproc: (a: Setup_Proc_Util_Args) => void;
     basic_proc_stdio: Basic_Proc_Stdio;
+    kill_all: (r: str[], manifest: { [pid: str]: ChildProcess }) => Promise<void>;
 }
 
 export interface Files_Complex_I {

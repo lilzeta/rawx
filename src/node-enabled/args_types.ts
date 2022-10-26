@@ -52,7 +52,7 @@ export interface Setup_Proc_Util_Args {
     sub_proc: ChildProcess;
     label: str;
     silence?: P.Silencer;
-    on_close: (pid: number) => void;
+    on_close?: () => void;
 }
 export type Basic_Proc_Stdio = (proc: ChildProcess, silence?: P.Silencer) => void;
 

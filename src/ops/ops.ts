@@ -240,7 +240,7 @@ const O_Generator: Ops_Gen = (() => {
                 typeof args[0] === "number" ? ([d, ...args] = args) : (d = def);
                 if (d > debug) return;
                 // can't use o.log at beginning of constructors
-                if (debug > 10) console.log(`_l local called w/type: ${typeof args[0]}`);
+                // if (debug > 10) console.log(`_l local called w/type: ${typeof args[0]}`);
                 if (args.length > 0) {
                     pre?.();
                     // WIP flags for work area notation - console.log(get_flag(dis));
