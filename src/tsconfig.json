@@ -1,8 +1,11 @@
 {
+    // "ts-node": {
+    //     "require": ["tsconfig-paths/register"]
+    // },
     "compilerOptions": {
-        "rootDir": "./src",
-        "outDir": "./dist",
-        "baseUrl": "./src",
+        "rootDir": ".",
+        "outDir": "../dist",
+        "baseUrl": "./",
         "moduleResolution": "node",
         "module": "commonjs",
         "target": "ES2015",
@@ -10,10 +13,12 @@
         "declaration": true,
         "noEmitOnError": true,
         "isolatedModules": true,
-        "keyofStringsOnly": true, // fantastic
         "noImplicitOverride": true,
         "noImplicitAny": true,
-        "noUnusedLocals": true,
+        // "noUnusedLocals": true,
+        // "strictPropertyInitialization":true,
+        // "strictNullChecks":true,
+        "noUnusedLocals": false,
         "noUnusedParameters": true,
         "resolveJsonModule": true, // WIP adding typedef values
         "esModuleInterop": false, // compiles to cjs, keep wrappers minimal
@@ -22,6 +27,5 @@
         "sourceMap": true,
         // "explainFiles": true,
     },
-    "include": ["src/**/*.ts"],
-    "exclude": ["./node_modules", "./clean", "./test", "./u"]
+    "include": ["**/*.ts"],
 }

@@ -4,58 +4,39 @@
  * Flux this tag if/whenever you feel like
  */
 // module.exports = Watch;
-// Types
-import { Require_Only_One } from "../util/validation/validator";
-import { Color_Targets, O, Ops_Gen } from "../ops/index";
-import { Files_Tree_C, Files_Tree_I, Matchers } from "./files_tree/index";
-import { Complex_Arg, Files_Complex_Args, Files_Complex_I } from "./files_tree/index";
-import { str } from "../util";
+// externals
+const { watchFile, unwatchFile, Stats } = require("fs");
+import { O, Ops_Gen } from "../ops/export_types";
+import { Complex_Arg, Watch_Args, Watch_Trigger } from "./args_types";
+import { Full_Trigger_Map, Trigger, Trigger_Map } from "./args_types";
+import { Files_Complex_I, Files_Tree_I, str, Watch_I } from "./export_types";
+import { Files_Tree_C } from "./files_tree/files_tree";
 
-// modulez
+// modulez require
 const Ops: Ops_Gen = require("../ops/ops");
 const Files_Tree: Files_Tree_C = require("./files_tree/files_tree");
 const Complex_File_Tree = require("./files_tree/files_complex");
 
-// Watch_I = type after new Watch(...)
-export interface Watch_I {
-    watches_clear: () => Promise<void>;
-    set_trigger: (fn: Watch_Trigger) => void;
-}
-export type Watch_Args = Require_Only_One<Watch_Args_, "trigger_index" | "trigger_indices">;
-export interface Watch_Args_ {
-    paths: Array<str>; // dir or file full paths
-    name?: str; // log labeling
-    // Aliased from Server, Note: `trigger` means `watch trigger`
-    trigger_index?: number; // restart from index on trigger
-    trigger_indices?: number[]; // length should match watch.paths
-    // WIP `complex` Modality
-    match?: Matchers;
-    // prototype working for full trigger explication
-    complex?: Files_Complex_Args; // w/? Higher precedence match inside
-    delay?: number;
-    poll: number;
-    debug?: number; // or uses Server one
-    colors?: Color_Targets; // or uses Server one
-}
-
-export type Watch_Trigger = (path: str, target?: number) => void;
-export type Trigger = number | undefined;
-export type Trigger_Map = Array<Trigger>;
-export type Full_Trigger_Map = Array<Trigger_Map>;
-
 // pause before monitoring the file_tree
 const DEFAULT_INITIAL_WATCH_DELAY = 3500;
 
+// Wrappers for a _Watch closure w/Ops env
 export type Watch_C = new (args: Watch_Args) => Watch_I;
-const Watch: Watch_C = (() => {
-    // externals
-    // Shimming slightly so they are only imported if called with require in inner construction
-    const { watchFile, unwatchFile, Stats } = require("fs");
-    // // set in constructor
+// Server_Facade behaves as would exposed inner _Server
+class Watch_Facade {
+    constructor(args: Watch_Args) {
+        return watch_creator(args) as Watch_I;
+    }
+}
+// Now we expose _Watch through Watch_Facade as if we created it w/vanilla
+const Watch = Watch_Facade as Watch_C;
+type Watch_Creator = (args: Watch_Args) => Watch_I;
+const watch_creator: Watch_Creator = (args: Watch_Args) => {
+    // set in constructor
     let o: O;
 
     // const Watch: Watch_Class = class _Watch <= return into w/a closure
-    return class _Watch implements Watch_I {
+    class _Watch implements Watch_I {
         debug: number = 2;
         // for both _file_tree/_complex
         // trigger: (path: str, target?: number) => void;
@@ -73,7 +54,7 @@ const Watch: Watch_C = (() => {
         constructor(args: Watch_Args) {
             let { paths, name, ...opts } = args;
             let label: str | undefined;
-            if (name?.length) label = `${name}|Watcher`;
+            if (name?.length) label = `${args.name.padEnd(6)}`;
             else label = "";
             if (args.debug !== undefined) {
                 this.debug = args.debug;
@@ -86,6 +67,7 @@ const Watch: Watch_C = (() => {
             if (o.defi(args.trigger_index)) this.trigger_index = args.trigger_index;
             const { complex, match, trigger_index } = opts;
             if (o.defi(args.complex)) {
+                // TODO FIX
                 // Doesn't use watch.paths right now
                 this._complex = new Complex_File_Tree({
                     // what are we gonna do about this?
@@ -93,10 +75,11 @@ const Watch: Watch_C = (() => {
                     match,
                     max_depth: 7,
                 });
-                this.trigger_indices = this.map_complex_triggers({
-                    complex: complex.complex,
-                    default_trigger: trigger_index,
-                });
+                throw new Error("Complex disabled as WIP");
+                // this.trigger_indices = this.map_complex_triggers({
+                //     complex: complex.complex,
+                //     default_trigger: trigger_index,
+                // });
             } else {
                 this.simple_trigger_indices = args.trigger_indices;
                 this.files_tree = new Files_Tree({
@@ -162,8 +145,7 @@ const Watch: Watch_C = (() => {
                 // Complex
                 if (this.trigger_indices) {
                     // TODO something more stable
-                    o.accent(1, `this.trigger_indices`);
-                    o.accent(1, this.trigger_indices);
+                    o.accent("this.trigger_indices", this.trigger_indices);
                     trigger_index = this.trigger_indices[n][i];
                 }
                 // not Complex
@@ -206,30 +188,30 @@ const Watch: Watch_C = (() => {
             }
         };
         // Some ambiguities and validation to work out yet
-        map_complex_triggers({
-            complex: complex_arr,
-            default_trigger,
-        }: {
-            complex: Complex_Arg[];
-            default_trigger?: number;
-        }): Full_Trigger_Map {
-            return complex_arr.reduce(
-                (propogate: Full_Trigger_Map, complex: Complex_Arg, i) => {
-                    propogate.push([]); // as in propogate[i] = []
-                    let sub_map: (n: number) => Trigger;
-                    if (complex.trigger_indices)
-                        // TODO why is the ? needed ...linting errata
-                        sub_map = (n: number) =>
-                            complex.trigger_indices?.[n] ?? default_trigger;
-                    else sub_map = (_: number) => complex.trigger_index ?? default_trigger;
-                    complex.paths.forEach((_root_path, n) => {
-                        propogate[i].push(sub_map(n));
-                    });
-                    return propogate;
-                },
-                Array<Trigger_Map>(),
-            );
-        }
+        // map_complex_triggers({
+        //     complex: complex_arr,
+        //     default_trigger,
+        // }: {
+        //     complex: Complex_Arg[];
+        //     default_trigger?: number;
+        // }): Full_Trigger_Map {
+        //     return complex_arr.reduce(
+        //         (propogate: Full_Trigger_Map, complex: Complex_Arg, i) => {
+        //             propogate.push([]); // as in propogate[i] = []
+        //             let sub_map: (n: number) => Trigger;
+        //             if (complex.trigger_indices)
+        //                 // TODO why is the ? needed ...linting errata
+        //                 sub_map = (n: number) =>
+        //                     complex.trigger_indices?.[n] ?? default_trigger;
+        //             else sub_map = (_: number) => complex.trigger_index ?? default_trigger;
+        //             complex.paths.forEach((_root_path, n) => {
+        //                 propogate[i].push(sub_map(n));
+        //             });
+        //             return propogate;
+        //         },
+        //         Array<Trigger_Map>(),
+        //     );
+        // }
 
         unwatch_tree(file_tree: Files_Tree_I) {
             file_tree.trunks().forEach((path_arr: readonly str[]) => {
@@ -238,6 +220,7 @@ const Watch: Watch_C = (() => {
                 });
             });
         }
-    };
-})();
+    }
+    return new _Watch(args);
+};
 module.exports = Watch;

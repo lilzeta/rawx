@@ -1,16 +1,48 @@
 ## Rawx - Server Daemon
+  
+0.4.beta or some such.  
+Fixed an abundance of win kill bugs, realized how far osx & linux might be. Termination wasn't working as well as I thought, switched to taskkill.  
+  
+Look at this nugget, similar to a thing found in the node:child-process docs.  
+```
+const os = require("os");
+const util = require("util");
+const { exec } = require("child_process");
+const p_exec = util.promisify(exec);
+const username = os.userInfo().username;
+let sys_user = `"USERNAME eq ${os.hostname()}\\${username}"`;
+let spoon_ex = `tasklist /nh /fo csv /fi ${sys_user}`;
+const { stdout, stderr } = await p_exec(spoon_ex);
+```
+That is what you probably think it is.  
+It's cmdline style promises for node.js!  
+  
+Finally got python tooling working in win, and now terming properly. Vastly underestimated native issues in specific veins. No 1.x.y or working MacOS for perhaps a long time. A dev to deal with osx native issues would be much help, I'll work on linux issues first hoping for that outcome.  Need a break, pushing WIP 0.4 because a ton irritating things to fix work now, but I doubt I'll publish for a bit to document breaking changes & update examples. Probably no more 0.3 patches. Anyway here's more WIP.  
+
+```
+...
+```
 Typed & opinionated node.js module for running child-processes & hooks  
 Server class is a process management class instantiated using JSON  
 Watch class is a file watch that triggers on file changes (or saves)  
 Ops is a class that conjoins a single node.js files' logs and configs  
-These all have configs that are deeply explicated by instantiating json.  
-
-## New support
-Rawx now has modules for CJS node, CJS Browser, ESM node & ESM Browser.  The browser modules only include Ops logging & the Base class.  All classes now operate through the typical instantiation (new keyword). Started adding arg validation for pure JS use. Typescript usage now includes types, @types soonish. 0.3.x is a early adapters 1.0.x pre-release, a lot changed to 0.3 and will work on testing it for a more proper release. The cohabitating browser module was a lot of work, learned a ton about node & typescript.  
+These all have configs that are deeply explicated by instantiating json. 
   
-`"type": "module",` is no longer required & moduleResolution: node now works as expected.  
+0.3.2 fixed an assortment of class scope leaks & added some support for setting no color easily.  
+Use `{..., colors: "no"}` to use no colors on the layer or use with a new Ops(...).  
+This is particularly handy when you've set your colors in a node parent  
+and want to use the same colors in some sub proc.  
+`no_colors` variable is also now a root export if you wish to use it deconstructively.  
+Helps with accenting some work zone locality with focusing color.  
+  
+## New support
+Rawx now has modules for CJS node, CJS Browser, ESM node & ESM Browser.  The browser modules only include Ops logging & the Base class.  All classes now operate through the typical instantiation (new keyword). Started adding arg validation for pure nodeJS use. Typescript usage now includes types, @types soonish. 0.3.x is a early adapters 1.0.x pre-release, a lot changed to 0.3 and will work on testing it for a more proper release. The cohabitating browser module was a lot of work, learned a ton about node & typescript.  
+  
+Style note, within src import means type/interface/declaration. Require means value import. It is consistent in this way.  
+  
+`"type": "module",` is no longer required & tsconfig {moduleResolution: node} now works as expected.  
 Switch Ops._l to Ops.log, new Ops(...) now returns a type O.  
-The new browser colored logging  
+Pic of the new browser colored logging:  
 ![Alt text](https://github.com/lilzeta/rawx/blob/main/docs/screen3.png "rawx-browser")  
 Would like to work on log alignment, for now node output looks like:  
 ![Alt text](https://github.com/lilzeta/rawx/blob/main/docs/screen1.PNG "rawx-node")  
@@ -30,15 +62,16 @@ Please keep in mind that your process is your responsibility.  >.~`
 Will try to get it tested on OSX & Linux soon  
 Since I use Bash, I would guess it works on Linux also  
 Probably needs some minor patches for OSX  
-There are hooks now, adding an example. Works w/single file compiles.   
+When I've completed the new validation module I plan on testing other OS.  
+  
+There are hooks now, added an example. Works w/single file compiles.   
 Example has Sass/Typescript, version 1 is no doubt gonna change.  
 Only support is pure fn hook or exec lite callback.  next level...  
 The Watch class now has deep support for explicated targets.
 Use match: {...} now for all include/include_dir/exclude/exclude_dir  
-Not supporting previous schema from 0.2, or publishing any new 0.1.x  
-All examples are up to date and running, hopefully less narrow now.  
+Not supporting previous schema from 0.3, or publishing any new 0.1|2.x  
   
-Added command repeaters here shown in/new first example following.  
+Added command repeaters here shown in new first example following.  
 ```
     type: "spawn",
     command: "cp",
@@ -825,6 +858,8 @@ for use as a production env. executor, please raise an issue with your work!
 w/a link, w/a gist or a repo for this repo's benefit, would love to see it.  
 I've some enterprise experience w/web prod architecture (aka webpack).  
 Could go for some enterprise operations experience in this vein (linux only?).  
+
+[This mostly-online book is helpful!](https://exploringjs.com/tackling-ts/)
   
 ## util.format WIP
 TODO switch to util.inspect & make depth configurable  

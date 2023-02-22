@@ -1,11 +1,10 @@
-// const ops_mod = require("./ops");
-// import { Ops } from "./index";
-// let o: Ops = ops_mod.ops();
-// export class Validator {
-//     constructor() {}
-// }
+const Ops = require("../../ops/ops");
+let { log, accent, keys } = new Ops();
+export class Validator {
+    constructor() {}
+}
 
-import { str } from "../../util";
+import { Server_Constructor_I, str } from "../../node-enabled/export_types";
 // https://stackoverflow.com/questions/53387838/how-to-ensure-an-arrays-values-the-keys-of-a-typescript-interface/53395649#53395649
 type Invalid<T> = ["Needs to be all of", T];
 type Resolution_Is_T_In_U<T, U extends T[]> = U &
@@ -70,6 +69,7 @@ export interface Arg_Validator_I {
     errors: str[];
     warnings: str[];
     validate: (args: any) => void;
+    set_validated: (_self: Server_Constructor_I) => void;
 }
 interface str_rule {
     type: "string";
@@ -101,7 +101,9 @@ class Arg_Validator implements Arg_Validator_I {
     }
     validate(args: any) {
         for (const [key, val] of Object.entries(args)) {
+            // Ignore JSON `$_` keys (comments or non-external args)
             if (skips(key)) continue;
+            // We will ignore undefined
             if (this.arg_dict[key] === undefined) {
                 continue;
             }
@@ -117,6 +119,7 @@ class Arg_Validator implements Arg_Validator_I {
                 } else {
                     this.validated[key] = val;
                 }
+                continue;
             }
             if (rule.type === "string") {
                 if (typeof val !== "string") {
@@ -130,10 +133,10 @@ class Arg_Validator implements Arg_Validator_I {
                             `Prop: ${key}, must be one of: ${rule.one_of.join(", ")}`,
                         );
                     }
-                    continue;
                 } else {
                     this.validated[key] = val;
                 }
+                continue;
             }
             if (rule.type === "boolean") {
                 if (typeof val !== "boolean") {
@@ -153,7 +156,7 @@ class Arg_Validator implements Arg_Validator_I {
                     continue;
                 }
             }
-            if (typeof val !== "object") {
+            if (typeof val === "object") {
                 if (Array.isArray(val)) {
                     this.warnings.push(
                         `Array type validation is a WIP, prop: ${key} set without validation.`,
@@ -170,6 +173,14 @@ class Arg_Validator implements Arg_Validator_I {
         console.log(this.warnings);
         console.log(`this.errors:`);
         console.log(this.errors);
+    }
+    set_validated(_self: Server_Constructor_I) {
+        for (const k of keys(this.validated)) {
+            const v = this.validated[k];
+            console.log(`k, v:`);
+            console.log(`${k}, ${v}`);
+            // self[k as keyof Server_Construct_Class] = v;
+        }
     }
 }
 module.exports = Arg_Validator;

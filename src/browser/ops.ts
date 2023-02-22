@@ -6,13 +6,15 @@
 // External modules
 const format_ = require("util").format;
 // Internal modules
-import { Some_Colors } from "./some_colors";
+import { Some_Colors } from "./color_util";
 const Base: Base_C = require("../util/base");
-const some_colors: Some_Colors = require("./some_colors");
+const color_util_mod = require("./color_util");
+const some_colors: Some_Colors = color_util_mod.some_colors;
+
 // Internal Types
 import { Base_C, Base_I } from "../util";
 import { Abstract_Constructor } from "../util";
-import { Conf, Color_Targets, Log } from "../ops/index";
+import { Ops_Conf, Color_Targets, Log } from "../ops/index";
 
 // The examples demonstrate `const o = Ops({...});` provides usage of Ops_I as o
 export interface O extends Base_I {
@@ -26,11 +28,21 @@ export interface O extends Base_I {
     simple_clean(s: str): str;
 }
 
+const no_colors: Color_Targets = {
+    label: "",
+    default: "",
+    forky: "",
+    accent: "",
+    errata: "",
+    bar: "",
+};
+const def = 2;
+
 // Ops_Gen only virtually a class (?correct title?),
 // class operates with a instance gen cache and a conf cache
 // Notice new(...) => Ops; returns the above collection of methods `O` to/into new Ops(conf) calls
-export type Ops_Gen = new (conf?: Conf) => O;
-export type Ops_Facade = Abstract_Constructor<Conf | undefined, O>;
+export type Ops_Gen = new (conf?: Ops_Conf) => O;
+export type Ops_Facade = Abstract_Constructor<Ops_Conf | undefined, O>;
 const Ops: Ops_Facade = (() => {
     // There is only 1 of these closures globally
     // stores a singleton instance of _Ops_Gen_Inner
@@ -60,6 +72,8 @@ const Ops: Ops_Facade = (() => {
         // no start newline space
         trim_ws_after_newline: /\n[\s\t]*/,
     };
+    let jig: any;
+    let d: number;
 
     class _Ops_Gen_Inner extends Base {
         name: str;
@@ -71,7 +85,7 @@ const Ops: Ops_Facade = (() => {
             forky: some_colors.PURPLE,
             accent: some_colors.NEON_YELLOW,
             errata: some_colors.H_RED,
-            fleck: some_colors.LAVENDER,
+            bar: some_colors.LAVENDER,
         };
         // log is colors[default]
         log: Log;
@@ -80,30 +94,37 @@ const Ops: Ops_Facade = (() => {
         errata: Log;
         // set_logging_etc_c_proc: (args: Set_Proc_Logger_Args) => void;
 
-        constructor(conf?: Conf) {
+        constructor(conf?: Ops_Conf) {
             super();
             if (conf) {
                 let { colors, debug, log_ignore_reg_repl } = conf;
                 if (log_ignore_reg_repl) global_nope_reg_repl = log_ignore_reg_repl;
                 // union over default basis w/our constructor args colors (a new default)
                 if (colors) {
-                    this.colors = {
-                        ...this.colors,
-                        ...colors,
-                    };
+                    if (colors === "no") {
+                        this.colors = no_colors;
+                    } else {
+                        this.colors = {
+                            ...this.colors,
+                            ...colors,
+                        };
+                    }
                 }
                 if (this.defi(debug)) this.debug = debug as number;
             }
         }
 
-        keys = Object.keys;
-
         // as in clone the basis _fns with conf
-        public ops({ colors: colors_conf = {}, debug: debug_conf }: Conf = {}): O {
-            let recolored_basis: Color_Targets = {
-                ...this.colors,
-                ...colors_conf,
-            };
+        public ops({ colors: colors_conf = {}, debug: debug_conf }: Ops_Conf = {}): O {
+            let recolored_basis: Color_Targets;
+            if (colors_conf === "no") {
+                recolored_basis = no_colors;
+            } else {
+                recolored_basis = {
+                    ...this.colors,
+                    ...colors_conf,
+                };
+            }
             // console.log(`recolored_basis: `);
             // console.log(recolored_basis);
             const debug: number = (this.defi(debug_conf) ? debug_conf : this.debug) as number;
@@ -134,18 +155,19 @@ const Ops: Ops_Facade = (() => {
                 defi: this.defi,
                 empty: this.empty,
                 truncate: this.truncate,
+                keys: this.keys,
+                entries: this.entries,
                 wait: this.wait,
                 pretty: this.pretty,
                 puff: this.puff,
                 fuzzy_true: this.fuzzy_true,
                 fuzzy_false: this.fuzzy_false,
-                if_in_get_index: this.if_in_get_index,
-                keys: this.keys,
+                // if_in_get_index: this.if_in_get_index,
                 simple_clean: this.simple_clean,
             };
         }
 
-        format: Arg_Formatter = (...args: [any]) => {
+        format: Arg_Formatter = (...args: [any]): str => {
             const is_num = (arg: any) => typeof arg === "number" || typeof arg === "bigint";
             const is_a_format_o = (arg: any) => Array.isArray(arg) || typeof arg === "object";
             const arg_f = (arg: any) => {
@@ -155,9 +177,8 @@ const Ops: Ops_Facade = (() => {
                 if (is_a_format_o(arg)) return format_("%o", arg);
                 else return format_(arg);
             };
-            let jiggler;
             const f_args = args.reduce((propogater: str[], arg) => {
-                (jiggler = arg_f(arg)).length && propogater.push(jiggler);
+                (jig = arg_f(arg)).length && propogater.push(jig);
                 return propogater;
             }, []);
             return f_args.join(" ");
@@ -170,13 +191,15 @@ const Ops: Ops_Facade = (() => {
             scaf_args: Inner_Rescaffold_Args,
         ) => {
             const { debug = this.debug, io } = scaf_args;
-            return (min_level: number, ...args: [any]) => {
-                if (min_level > debug) return;
+            return (...args: any[]) => {
+                let d = isNaN((jig = parseInt(args[0]))) ? def : jig;
+                typeof args[0] === "number" ? ([d, ...args] = args) : (d = def);
+                if (d > debug) return;
                 // can't use o.log at beginning of constructors
                 if (debug > 10) console.log(`_l local called w/type: ${typeof args[0]}`);
                 if (args.length > 0) {
                     // WIP flags for work area notation - console.log(get_flag(dis));
-                    io(this.format(...args));
+                    io(this.format.apply(null, args));
                 }
             };
         }; // kind
@@ -245,7 +268,7 @@ const Ops: Ops_Facade = (() => {
     }
     // a spoofed class, anonymous and strange, facade for _Ops_Gen_Inner cache
     return class IO_Facade {
-        constructor(conf?: Conf) {
+        constructor(conf?: Ops_Conf) {
             if (ops_gen_cached) {
                 if (!conf) return ops_cache;
                 return ops_gen_cached.ops(conf);

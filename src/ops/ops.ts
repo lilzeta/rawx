@@ -13,11 +13,16 @@
 // External
 const format_ = require("node:util").format;
 // Internal
-import { Base_C, Base_I } from "../util/base";
+import { Base_C, str } from "../util/export_types";
 const Base: Base_C = require("../util/base");
-import { Some_Colors } from "./some_colors";
-const some_colors: Some_Colors = require("./some_colors");
-import { str, Abstract_Constructor } from "../util";
+import { Some_Colors } from "./color_util";
+const color_util_mod = require("./color_util");
+const some_colors: Some_Colors = color_util_mod.some_colors;
+import { Abstract_Constructor } from "../util";
+import { Color_Targets, Ops_Conf } from "./args_types";
+import { Log, O, Ops_Gen } from "./export_types";
+
+const def = 2;
 
 // \033 in hex
 const ESCAPE = "\x1B";
@@ -27,59 +32,22 @@ const default_colors: Escaped_Color_Targets = {
     label: ESCAPE + some_colors.LAVENDER,
     default: ESCAPE + some_colors.TECHNICOLOR_GREEN,
     forky: ESCAPE + some_colors.PURPLE,
-    accent: ESCAPE + some_colors.D_BLUE, // TODO oops darkly
+    accent: ESCAPE + some_colors.D_BLUE,
     errata: ESCAPE + some_colors.H_RED,
-    // fleck: ESCAPE + some_colors.D_BLUE,
-    fleck: ESCAPE + some_colors.LAVENDER,
+    bar: ESCAPE + some_colors.LAVENDER,
 };
-
-// Now our exported types
-export interface Color_Targets {
-    // Class name color
-    label: str; // "" for no labeling
-    // All sub-proc labelling
-    default: str;
-    // Accented for attention
-    accent: str;
-    // Start/Close/Proc specific event
-    forky: str;
-    errata: str;
-    // The `-` between label & log
-    fleck: str; // "" for no fleck
-}
-export type Color_Target = keyof Color_Targets;
-export type Log = (min_level: number, ...args: [any]) => void;
-
-// This is the result of an new Ops({...}) call, it is not a class but 'object'
-export interface O extends Base_I {
-    // 0-10 , 11...
-    debug: number;
-    colors: Color_Targets;
-    log: Log;
-    accent: Log;
-    forky: Log;
-    errata: Log;
-    // wait is a simple polyfill for both browser/node
-    // same outcome as importing node:timers/setTimeout
-    wait: Wait;
-    // Uses a closure to track global stdout newlines etc and cleanup output
-    simple_clean: (s: str) => str;
-}
-export interface Conf {
-    // 0-10 , 11...
-    debug?: number;
-    colors?: Partial<Color_Targets>;
-    label?: str;
-    log_ignore_reg_repl?: { reg: RegExp; replace?: string }[];
-    unique?: true;
-}
-// node:timers/setTimeout...now a simple polyfill for the browser
-export type Wait = (n: number) => Promise<void>;
+const no_colors: Escaped_Color_Targets = {
+    label: "",
+    default: "",
+    forky: "",
+    accent: "",
+    errata: "",
+    bar: "",
+};
 
 // Virtually a class (?correct title?), class operates as a class cache with a conf basis override
 // Notice new(...) => Ops; returns the above collection of methods when new Ops(conf)
-export type Ops_Gen = new (conf?: Conf) => O;
-export type Ops_Facade = Abstract_Constructor<Conf | undefined, O>;
+type Ops_Facade = Abstract_Constructor<Ops_Conf | undefined, O>;
 
 const O_Generator: Ops_Gen = (() => {
     // There is only 1 of these closures globally
@@ -108,6 +76,8 @@ const O_Generator: Ops_Gen = (() => {
         // no start newline space
         trim_ws_after_newline: /\n[\s\t]*/,
     };
+    // let jig: any;
+    let d: number;
 
     // Instantiated once/only-first new Ops(...) call
     class _Ops_Gen_Inner extends Base {
@@ -122,7 +92,7 @@ const O_Generator: Ops_Gen = (() => {
         errata: Log;
         // set_logging_etc_c_proc: (args: Set_Proc_Logger_Args) => void;
 
-        constructor(conf?: Conf) {
+        constructor(conf?: Ops_Conf) {
             super();
             if (conf) {
                 let { colors: color_conf, debug, log_ignore_reg_repl } = conf;
@@ -130,10 +100,14 @@ const O_Generator: Ops_Gen = (() => {
                 if (log_ignore_reg_repl) global_nope_reg_repl = log_ignore_reg_repl;
                 // union args over the default w/args.colors as a new default
                 if (color_conf) {
-                    this.colors = {
-                        ...this.colors,
-                        ...this.escape_colors(color_conf),
-                    };
+                    if (color_conf === "no") {
+                        this.colors = no_colors;
+                    } else {
+                        this.colors = {
+                            ...this.colors,
+                            ...this.escape_colors(color_conf),
+                        };
+                    }
                 }
                 if (this.defi(debug)) this.debug = debug as number;
             }
@@ -160,11 +134,20 @@ const O_Generator: Ops_Gen = (() => {
         };
 
         // as in clone the basis _fns with conf
-        public ops({ colors: colors_arg = {}, debug: debug_conf, label = "" }: Conf = {}): O {
-            let conf_colors: Color_Targets = {
-                ...this.colors,
-                ...this.escape_colors(colors_arg),
-            };
+        public ops({
+            colors: colors_arg = {},
+            debug: debug_conf,
+            label = "",
+        }: Ops_Conf = {}): O {
+            let conf_colors: Color_Targets;
+            if (colors_arg === "no") {
+                conf_colors = no_colors;
+            } else {
+                conf_colors = {
+                    ...this.colors,
+                    ...this.escape_colors(colors_arg),
+                };
+            }
             // console.log(`recolored_basis: `);
             // console.log(recolored_basis);
             const debug = this.defi(debug_conf) ? debug_conf : this.debug;
@@ -178,7 +161,7 @@ const O_Generator: Ops_Gen = (() => {
                     pre: this.prefix({
                         label,
                         color: conf_colors["label"],
-                        fleck: conf_colors["fleck"],
+                        bar: conf_colors["bar"],
                         main_color: conf_colors["default"],
                     }),
                 }),
@@ -188,7 +171,7 @@ const O_Generator: Ops_Gen = (() => {
                     pre: this.prefix({
                         label,
                         color: conf_colors["label"],
-                        fleck: conf_colors["fleck"],
+                        bar: conf_colors["bar"],
                         main_color: conf_colors["accent"],
                     }),
                 }),
@@ -198,7 +181,7 @@ const O_Generator: Ops_Gen = (() => {
                     pre: this.prefix({
                         label,
                         color: conf_colors["label"],
-                        fleck: conf_colors["fleck"],
+                        bar: conf_colors["bar"],
                         main_color: conf_colors["forky"],
                     }),
                 }),
@@ -208,13 +191,15 @@ const O_Generator: Ops_Gen = (() => {
                     pre: this.prefix({
                         label,
                         color: conf_colors["label"],
-                        fleck: conf_colors["fleck"],
+                        bar: conf_colors["bar"],
                         main_color: conf_colors["errata"],
                     }),
                 }),
-                // aliases of Core super methods
+                // aliases of Core (super) methods
                 defi: this.defi,
                 empty: this.empty,
+                keys: this.keys,
+                entries: this.entries,
                 truncate: this.truncate,
                 wait: this.wait,
                 pretty: this.pretty,
@@ -222,10 +207,10 @@ const O_Generator: Ops_Gen = (() => {
                 puff: this.puff,
                 fuzzy_true: this.fuzzy_true,
                 fuzzy_false: this.fuzzy_false,
-                if_in_get_index: this.if_in_get_index,
+                // if_in_get_index: this.if_in_get_index,
             };
         }
-        format: Arg_Formatter = (...args: [any]) => {
+        format: Arg_Formatter = (...args: any[]) => {
             const is_num = (arg: any) => typeof arg === "number" || typeof arg === "bigint";
             const is_a_format_o = (arg: any) => Array.isArray(arg) || typeof arg === "object";
             const arg_f = (arg: any) => {
@@ -251,14 +236,15 @@ const O_Generator: Ops_Gen = (() => {
         ) => {
             const { debug = this.debug, pre } = scaf_args;
             const post = this.post({ is_defi_IO: pre });
-            return (min_level: number, ...args: [any]) => {
-                if (min_level > debug) return;
+            return (...args: any[]) => {
+                typeof args[0] === "number" ? ([d, ...args] = args) : (d = def);
+                if (d > debug) return;
                 // can't use o.log at beginning of constructors
-                if (debug > 10) console.log(`_l local called w/type: ${typeof args[0]}`);
+                // if (debug > 10) console.log(`_l local called w/type: ${typeof args[0]}`);
                 if (args.length > 0) {
                     pre?.();
                     // WIP flags for work area notation - console.log(get_flag(dis));
-                    console.log(this.format(...args));
+                    console.log(this.format.apply(null, args));
                     post?.();
                 }
             };
@@ -293,26 +279,27 @@ const O_Generator: Ops_Gen = (() => {
         log_errata_industrial: Log_Factory = this.boom({
             color_target: "errata",
         }); // kind
-        prefix: LabelWrap = ({ label = "", color, fleck, main_color }: LabelWrapArgs) => {
+        prefix: LabelWrap = ({ label = "", color, bar, main_color }: LabelWrapArgs) => {
             let _color;
             if (!label.length) {
                 if (main_color?.length) return () => this.stdout(main_color);
                 // else should already be NO color
                 return undefined;
             }
-            let pre = `<${label}>`;
+            // let pre = `<${label}>`;
+            let pre = label;
             if (color?.length) {
                 _color = color;
                 pre = color?.length ? color + pre : pre;
             }
-            pre += " ";
-            // color fleck="" -> also no fleck
-            if (fleck?.length) {
-                if (fleck !== _color) {
-                    pre += fleck;
+            pre += "| ";
+            // color bar="" -> also no fleck
+            if (bar?.length) {
+                if (bar !== _color) {
+                    pre += bar;
                 }
-                _color = fleck;
-                pre += "- ";
+                _color = bar;
+                // pre += "- ";
             }
 
             if (_color !== main_color) {
@@ -364,7 +351,7 @@ const O_Generator: Ops_Gen = (() => {
 
     // a spoofed class, anonymous and strange, facade for _Ops_Gen_Inner cache
     return class IO_Facade {
-        constructor(conf?: Conf) {
+        constructor(conf?: Ops_Conf) {
             if (ops_gen_cached) {
                 if (!conf) return ops_cache;
                 return ops_gen_cached.ops(conf);
@@ -387,7 +374,7 @@ type I_O = () => void | undefined;
 type Std_IO = (s: string) => void;
 type Arg_Formatter = (args: any[]) => string;
 type LabelWrap = (args: LabelWrapArgs) => I_O | undefined;
-type LabelWrapArgs = { label?: string; color?: string; fleck?: string; main_color: string };
+type LabelWrapArgs = { label?: string; color?: string; bar?: string; main_color: string };
 type PostWrap = (args: { is_defi_IO?: I_O }) => I_O | undefined;
 // simple internal helper to distinguish varieties of same str type
 interface Escaped_Color_Targets extends Color_Targets {}

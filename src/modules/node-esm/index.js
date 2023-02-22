@@ -10,8 +10,10 @@ export { Server };
 export { default as Watch } from "../../node-enabled/watch.js";
 
 // Shared/Ops/Base Logging/Utils
-export { default as Ops } from "../../ops/ops.js";
-export { default as some_colors } from "../../ops/some_colors.js";
+import { default as Ops_Mod } from "../../node-enabled/index.js";
+export const Ops = Ops_Mod.Ops;
+export const no_colors = Ops_Mod.no_colors;
+export const some_colors = Ops_Mod.some_colors;
 export { default as Base } from "../../util/base.js";
 
 // // Node File Utils
